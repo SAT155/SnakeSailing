@@ -121,7 +121,7 @@
         <Error Condition="!Exists('$(ManagedDir)/assembly_valheim.dll')" Text="Valheim game assemblies not found. Set GamePath to your Valheim install (Steam auto-detected), or pass ManagedDir directly."/>
         <Error Condition="!Exists('$(BepInExDir)/core/BepInEx.dll')" Text="BepInEx assemblies not found. Install BepInEx into GamePath, or pass BepInExDir directly."/>
     </Target>
-    <Import Project="ILRepack.targets"/>
+    <!-- ILRepack.Lib.MSBuild.Task auto-imports ILRepack.targets from the project directory; no explicit Import needed. -->
     <!-- Local Windows dev convenience only: drop the built plugin straight into a Steam install. No-op in CI. -->
     <Target Name="Copy" AfterTargets="ILRepack" Condition="'$(OS)' == 'Windows_NT' AND Exists('$(GamePath)')">
         <Exec Command="copy /Y &quot;$(TargetDir)$(AssemblyName).dll&quot; &quot;$(GamePath)\BepInEx\plugins\$(AssemblyName).dll&quot;"/>
