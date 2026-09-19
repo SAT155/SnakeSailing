@@ -4,10 +4,10 @@
     <Target Name="ILRepacker" AfterTargets="Build" Condition=" '$(Configuration)|$(Platform)' != 'API|AnyCPU' ">
         <ItemGroup>
             <InputAssemblies Include="$(TargetPath)" />
-            <InputAssemblies Include="$(TargetDir)SkillManager.dll" />
-            <InputAssemblies Include="$(TargetDir)ServerSync.dll" />
+            <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/SkillManager.dll" />
+            <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/ServerSync.dll" />
         </ItemGroup>
         <ILRepack Parallel="true" DebugInfo="true" Internalize="true" InputAssemblies="@(InputAssemblies)"
-                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(TargetDir)" />
+                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(MSBuildThisFileDirectory)Libs" />
     </Target>
 </Project>
