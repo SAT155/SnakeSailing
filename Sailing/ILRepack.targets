@@ -8,6 +8,6 @@
             <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/ServerSync.dll" />
         </ItemGroup>
         <ILRepack Parallel="true" DebugInfo="true" Internalize="true" InputAssemblies="@(InputAssemblies)"
-                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(MSBuildThisFileDirectory)Libs" />
+                  OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(MSBuildThisFileDirectory)Libs;$(ManagedDir);$(BepInExDir)/core" />
     </Target>
 </Project>
