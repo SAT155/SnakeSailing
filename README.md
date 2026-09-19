@@ -32,29 +32,56 @@ small private dedicated server.
 - Valheim 1.0+ (Ashlands) dedicated server and clients
 - [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) installed on the server and every client
 
-## Building
+## Compatibility
+
+- **Valheim Plus**: the original upstream mod hard-blocked loading
+  alongside any plugin with the GUID `org.bepinex.plugins.valheim_plus`
+  (this includes forks that keep that GUID, e.g.
+  [Grantapher's temporary V+ build](https://thunderstore.io/c/valheim/p/Grantapher/ValheimPlus_Grantapher_Temporary/)).
+  That hard block has been removed here — the mod now just logs a warning
+  if it detects V+ (or a fork of it) is also loaded, since both mods patch
+  ship speed/controls and could interact in ways neither author tested.
+  Test your own ship setup after enabling both.
+
+## Building automatically (CI)
+
+`.github/workflows/build.yml` builds the plugin on every push/PR with no
+local Valheim install required: it anonymously downloads the Valheim
+dedicated server (for the game's managed assemblies) and the BepInEx pack
+via SteamCMD/curl on the runner, then builds and publicizes against those.
+
+- Every push/PR: open the run under the **Actions** tab and download the
+  `Sailing` artifact (contains `Sailing.dll`) — grab this on each of your
+  two PCs for local testing.
+- Pushing a tag like `v1.1.10` also cuts a GitHub Release with
+  `Sailing.dll` attached.
+
+## Building locally
 
 This is a standard BepInEx/Harmony C# class library targeting .NET
-Framework 4.8. It needs a local Valheim install to build against (for the
-game's managed DLLs), so building has to happen on a machine (or Wine
-prefix) with Valheim installed via Steam.
+Framework 4.8 (SDK-style project, buildable with the `dotnet` CLI). For a
+local build you need a Valheim install to build against, for the game's
+managed DLLs.
 
-1. Install the .NET SDK (with MSBuild) and Visual Studio / Rider or the
-   `dotnet` CLI.
+1. Install the .NET SDK.
 2. Make sure Valheim is installed via Steam. The project auto-detects the
    game path (`~/.steam/steam/steamapps/common/Valheim` on Linux, the
    Steam registry key on Windows). Override it by setting the `GamePath`
    MSBuild property if auto-detection doesn't find it, e.g.:
    ```
-   dotnet build Sailing/Sailing.csproj -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
+   dotnet build Sailing/Sailing.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
    ```
+   Alternatively, point straight at the managed/BepInEx folders with
+   `-p:ManagedDir=... -p:BepInExDir=...` (this is what CI does).
 3. Build in Release configuration:
    ```
    dotnet build Sailing.sln -c Release
    ```
-   The build automatically ILRepacks the plugin and its dependencies into
-   a single `Sailing.dll`, and (per `ILRepack.targets`) copies it into
-   `<GamePath>/BepInEx/plugins/` when building on Windows.
+   The build automatically publicizes the game assemblies it needs
+   (via `BepInEx.AssemblyPublicizer.MSBuild`), ILRepacks the plugin and
+   its dependencies into a single `Sailing.dll`, and — only on Windows,
+   when `GamePath` resolves to a real folder — copies it straight into
+   `<GamePath>/BepInEx/plugins/`.
 
 ## Installing on the dedicated server
 

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using BepInEx;
+using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using HarmonyLib;
 using JetBrains.Annotations;
@@ -15,12 +16,12 @@ using UnityEngine;
 namespace Sailing;
 
 [BepInPlugin(ModGUID, ModName, ModVersion)]
-[BepInIncompatibility("org.bepinex.plugins.valheim_plus")]
 public class Sailing : BaseUnityPlugin
 {
 	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.9";
+	private const string ModVersion = "1.1.10";
 	private const string ModGUID = "org.bepinex.plugins.sailing";
+	private const string ValheimPlusGUID = "org.bepinex.plugins.valheim_plus";
 
 	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
 
@@ -93,6 +94,11 @@ public class Sailing : BaseUnityPlugin
 		Assembly assembly = Assembly.GetExecutingAssembly();
 		Harmony harmony = new(ModGUID);
 		harmony.PatchAll(assembly);
+
+		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
+		{
+			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods patch ship speed and controls, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
+		}
 
 		mod = this;
 	}

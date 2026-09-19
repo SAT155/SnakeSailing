@@ -1,0 +1,96 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Bump this when you want a newer BepInEx to build/publicize against.
+  # Check for the current version at:
+  # https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim/
+  BEPINEX_VERSION: 5.4.2350
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install SteamCMD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lib32gcc-s1
+          mkdir -p "$RUNNER_TEMP/steamcmd"
+          curl --fail --location --retry 3 \
+            https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
+            -o "$RUNNER_TEMP/steamcmd.tar.gz"
+          tar -xzf "$RUNNER_TEMP/steamcmd.tar.gz" -C "$RUNNER_TEMP/steamcmd"
+
+      - name: Download Valheim dedicated server (for game assemblies)
+        run: |
+          # Valheim Dedicated Server (app 896660) is free and downloads anonymously.
+          # It ships the same managed assemblies needed to compile a client+server mod.
+          for attempt in 1 2 3; do
+            if "$RUNNER_TEMP/steamcmd/steamcmd.sh" \
+              +force_install_dir "$RUNNER_TEMP/valheim" \
+              +login anonymous +app_update 896660 validate +quit \
+              && test -f "$RUNNER_TEMP/valheim/valheim_server_Data/Managed/assembly_valheim.dll"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::SteamCMD could not download Valheim app 896660 after three attempts."
+              exit 1
+            fi
+            echo "SteamCMD download attempt $attempt failed; retrying in 5s."
+            sleep 5
+          done
+          echo "MANAGED_DIR=$RUNNER_TEMP/valheim/valheim_server_Data/Managed" >> "$GITHUB_ENV"
+
+      - name: Download BepInEx pack
+        run: |
+          curl --fail --location --retry 3 \
+            "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/${BEPINEX_VERSION}/" \
+            -o "$RUNNER_TEMP/bepinex.zip"
+          unzip -q "$RUNNER_TEMP/bepinex.zip" -d "$RUNNER_TEMP/bepinex"
+          echo "BEPINEX_DIR=$RUNNER_TEMP/bepinex/BepInExPack_Valheim/BepInEx" >> "$GITHUB_ENV"
+
+      - name: Build Sailing.dll
+        run: |
+          dotnet build Sailing/Sailing.csproj -c Release \
+            -p:ManagedDir="$MANAGED_DIR" -p:BepInExDir="$BEPINEX_DIR"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sailing
+          path: Sailing/bin/Release/Sailing.dll
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Sailing
+          path: artifact
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" artifact/Sailing.dll \
+            --repo "${{ github.repository }}" --generate-notes

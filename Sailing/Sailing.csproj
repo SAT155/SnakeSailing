@@ -1,47 +1,38 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-    <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')"/>
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-        <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-        <ProjectGuid>{F7B25B5A-5CFB-43CA-934A-440CDB9CB1A9}</ProjectGuid>
-        <OutputType>Library</OutputType>
-        <AppDesignerFolder>Properties</AppDesignerFolder>
-        <RootNamespace>Sailing</RootNamespace>
+        <TargetFramework>net48</TargetFramework>
         <AssemblyName>Sailing</AssemblyName>
-        <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-        <FileAlignment>512</FileAlignment>
+        <RootNamespace>Sailing</RootNamespace>
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <WarningLevel>4</WarningLevel>
     </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <DebugSymbols>true</DebugSymbols>
+    <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
         <DebugType>full</DebugType>
         <Optimize>false</Optimize>
-        <OutputPath>bin\Debug\</OutputPath>
-        <DefineConstants>DEBUG;TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
     </PropertyGroup>
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-        <PlatformTarget>AnyCPU</PlatformTarget>
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <DebugType>pdbonly</DebugType>
         <Optimize>true</Optimize>
-        <OutputPath>bin\Release\</OutputPath>
-        <DefineConstants>TRACE</DefineConstants>
-        <ErrorReport>prompt</ErrorReport>
-        <WarningLevel>4</WarningLevel>
     </PropertyGroup>
+    <!--
+      Local development (Windows/macOS/Linux with Steam + Valheim installed) auto-detects
+      the game install. CI instead passes -p:ManagedDir=... -p:BepInExDir=... directly,
+      pointed at a headless dedicated-server download and an unpacked BepInExPack, so no
+      GamePath/Steam install is required to build. See .github/workflows/build.yml.
+    -->
     <Choose>
-        <When Condition="($(OS) == 'Unix' OR $(OS) == 'OSX') AND $(GamePath) == ''">
+        <When Condition="($(OS) == 'Unix' OR $(OS) == 'OSX') AND '$(GamePath)' == ''">
             <PropertyGroup>
                 <GamePath Condition="!Exists('$(GamePath)')">$(HOME)/.steam/steam/steamapps/common/Valheim</GamePath>
                 <GamePath Condition="!Exists('$(GamePath)')">$(HOME)/Library/Application Support/Steam/steamapps/common/Valheim/Contents/MacOS</GamePath>
             </PropertyGroup>
         </When>
-        <When Condition="($(OS) == 'Windows_NT') AND $(GamePath) == ''">
+        <When Condition="($(OS) == 'Windows_NT') AND '$(GamePath)' == ''">
             <PropertyGroup>
                 <GamePath Condition="!Exists('$(GamePath)')">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 892970', 'InstallLocation', null, RegistryView.Registry64, RegistryView.Registry32))</GamePath>
                 <_SteamLibraryPath>$([MSBuild]::GetRegistryValueFromView('HKEY_CURRENT_USER\SOFTWARE\Valve\Steam', 'SteamPath', null, RegistryView.Registry32))</_SteamLibraryPath>
@@ -51,80 +42,88 @@
             </PropertyGroup>
         </When>
     </Choose>
+    <PropertyGroup>
+        <ManagedDir Condition="'$(ManagedDir)' == ''">$(GamePath)/valheim_Data/Managed</ManagedDir>
+        <BepInExDir Condition="'$(BepInExDir)' == ''">$(GamePath)/BepInEx</BepInExDir>
+    </PropertyGroup>
     <ItemGroup>
-        <Reference Include="0Harmony, Version=2.9.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\BepInEx\core\0Harmony.dll</HintPath>
-            <SpecificVersion>false</SpecificVersion>
-        </Reference>
-        <Reference Include="assembly_guiutils, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\valheim_Data\Managed\publicized_assemblies\assembly_guiutils_publicized.dll</HintPath>
-        </Reference>
-        <Reference Include="assembly_utils, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\valheim_Data\Managed\publicized_assemblies\assembly_utils_publicized.dll</HintPath>
-        </Reference>
-        <Reference Include="assembly_valheim, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\valheim_Data\Managed\publicized_assemblies\assembly_valheim_publicized.dll</HintPath>
-        </Reference>
-        <Reference Include="BepInEx, Version=5.4.19.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\BepInEx\core\BepInEx.dll</HintPath>
-            <SpecificVersion>false</SpecificVersion>
-        </Reference>
-        <Reference Include="ServerSync, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>Libs\ServerSync.dll</HintPath>
-        </Reference>
-        <Reference Include="SkillManager, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>Libs\SkillManager.dll</HintPath>
-            <SpecificVersion>false</SpecificVersion>
-        </Reference>
-        <Reference Include="System"/>
-        <Reference Include="System.Core"/>
-        <Reference Include="System.Data"/>
-        <Reference Include="System.Xml"/>
-        <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\valheim_Data\Managed\UnityEngine.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>$(GamePath)\valheim_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.InputLegacyModule">
-            <HintPath>$(GamePath)\valheim_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
-        </Reference>
-        <Reference Include="UnityEngine.PhysicsModule">
-            <HintPath>$(GamePath)\valheim_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
-        </Reference>
-    </ItemGroup>
-    <ItemGroup>
-        <Compile Include="Sailing.cs"/>
-        <Compile Include="Properties\AssemblyInfo.cs"/>
-    </ItemGroup>
-    <ItemGroup>
-        <EmbeddedResource Include="icons\sailing.png"/>
-        <Content Include="ILRepack.targets"/>
-        <Content Include="Libs\ServerSync.dll">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-        <Content Include="Libs\SkillManager.dll">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-    <ItemGroup>
-        <None Include="App.config"/>
-    </ItemGroup>
-    <ItemGroup>
+        <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all"/>
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all"/>
         <PackageReference Include="ILRepack.Lib.MSBuild.Task" Version="2.0.44.1">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
-    <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
-    <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-         Other similar extension points exist, see Microsoft.Common.targets.
-    <Target Name="BeforeBuild">
+    <ItemGroup>
+        <Reference Include="0Harmony">
+            <HintPath>$(BepInExDir)/core/0Harmony.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="BepInEx">
+            <HintPath>$(BepInExDir)/core/BepInEx.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="assembly_guiutils">
+            <HintPath>$(ManagedDir)/assembly_guiutils.dll</HintPath>
+            <Publicize>true</Publicize>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="assembly_utils">
+            <HintPath>$(ManagedDir)/assembly_utils.dll</HintPath>
+            <Publicize>true</Publicize>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="assembly_valheim">
+            <HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath>
+            <Publicize>true</Publicize>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine">
+            <HintPath>$(ManagedDir)/UnityEngine.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.InputLegacyModule">
+            <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.PhysicsModule">
+            <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="ServerSync">
+            <HintPath>Libs/ServerSync.dll</HintPath>
+        </Reference>
+        <Reference Include="SkillManager">
+            <HintPath>Libs/SkillManager.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="Sailing.cs"/>
+        <Compile Include="Properties/AssemblyInfo.cs"/>
+    </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="icons/sailing.png"/>
+        <None Include="ILRepack.targets"/>
+        <None Include="Libs/ServerSync.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Include="Libs/SkillManager.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Include="App.config"/>
+    </ItemGroup>
+    <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
+        <Error Condition="!Exists('$(ManagedDir)/assembly_valheim.dll')" Text="Valheim game assemblies not found. Set GamePath to your Valheim install (Steam auto-detected), or pass ManagedDir directly."/>
+        <Error Condition="!Exists('$(BepInExDir)/core/BepInEx.dll')" Text="BepInEx assemblies not found. Install BepInEx into GamePath, or pass BepInExDir directly."/>
     </Target>
-    <Target Name="AfterBuild">
-    </Target>
-    -->
-    <Target Name="Copy" AfterTargets="ILRepack">
+    <Import Project="ILRepack.targets"/>
+    <!-- Local Windows dev convenience only: drop the built plugin straight into a Steam install. No-op in CI. -->
+    <Target Name="Copy" AfterTargets="ILRepack" Condition="'$(OS)' == 'Windows_NT' AND Exists('$(GamePath)')">
         <Exec Command="copy /Y &quot;$(TargetDir)$(AssemblyName).dll&quot; &quot;$(GamePath)\BepInEx\plugins\$(AssemblyName).dll&quot;"/>
     </Target>
 </Project>
