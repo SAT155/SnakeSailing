@@ -16,6 +16,10 @@ permissions:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        mod: [Sailing, Ranching]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -63,16 +67,16 @@ jobs:
           unzip -q "$RUNNER_TEMP/bepinex.zip" -d "$RUNNER_TEMP/bepinex"
           echo "BEPINEX_DIR=$RUNNER_TEMP/bepinex/BepInExPack_Valheim/BepInEx" >> "$GITHUB_ENV"
 
-      - name: Build Sailing.dll
+      - name: Build ${{ matrix.mod }}.dll
         run: |
-          dotnet build Sailing/Sailing.csproj -c Release \
+          dotnet build ${{ matrix.mod }}/${{ matrix.mod }}.csproj -c Release \
             -p:ManagedDir="$MANAGED_DIR" -p:BepInExDir="$BEPINEX_DIR"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Sailing
-          path: Sailing/bin/Release/Sailing.dll
+          name: ${{ matrix.mod }}
+          path: ${{ matrix.mod }}/bin/Release/${{ matrix.mod }}.dll
           if-no-files-found: error
 
   release:
@@ -86,11 +90,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: Sailing
-          path: artifact
+          path: artifacts
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" artifact/Sailing.dll \
+          gh release create "${{ github.ref_name }}" artifacts/Sailing/Sailing.dll artifacts/Ranching/Ranching.dll \
             --repo "${{ github.repository }}" --generate-notes
