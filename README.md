@@ -9,6 +9,7 @@ automatically, for use on a small private dedicated server.
 | --- | --- | --- |
 | `Sailing/` | [blaxxun-boop/Sailing](https://github.com/blaxxun-boop/sailing) | Adds a Sailing skill: ships you build gain extra health, ships you command get faster, exploration radius while sailing increases with skill. Optional ship "nudge" hotkey. |
 | `Ranching/` | [blaxxun-boop/Ranching](https://github.com/blaxxun-boop/ranching) | Adds a Ranching skill: reduces taming time and increases item yield of tamed animals as skill increases. |
+| `Mining/` | [blaxxun-boop/Mining](https://github.com/blaxxun-boop/mining) | Adds a Mining skill: increases mining damage and ore yield, with an optional chance for deposits to explode, as skill increases. |
 
 ## Multiplayer / dedicated server notes
 
@@ -26,8 +27,7 @@ automatically, for use on a small private dedicated server.
 - Each mod is self-contained: its dependency DLLs (`SkillManager`,
   `ServerSync`, and for Ranching, `CreatureLevelControlAPI`) are merged
   into the built plugin DLL via ILRepack, so you only need to copy the one
-  `Sailing.dll` / `Ranching.dll` file to `BepInEx/plugins/` per mod — no
-  extra DLLs to manage.
+  `.dll` file per mod to `BepInEx/plugins/` — no extra DLLs to manage.
 
 ## Requirements
 
@@ -36,28 +36,30 @@ automatically, for use on a small private dedicated server.
 
 ## Compatibility
 
-- **Valheim Plus**: upstream hard-blocked both mods from loading alongside
-  any plugin with the GUID `org.bepinex.plugins.valheim_plus` (this
-  includes forks that keep that GUID, e.g.
+- **Valheim Plus**: upstream hard-blocked all three mods from loading
+  alongside any plugin with the GUID `org.bepinex.plugins.valheim_plus`
+  (this includes forks that keep that GUID, e.g.
   [Grantapher's temporary V+ build](https://thunderstore.io/c/valheim/p/Grantapher/ValheimPlus_Grantapher_Temporary/)).
   That hard block has been removed here — each mod now just logs a warning
-  if it detects V+ (or a fork of it) is also loaded, since both mods patch
-  overlapping game behavior (Sailing: ship speed/controls; Ranching:
-  taming/breeding) and could interact in ways neither author tested. Test
-  your own setup after enabling both.
+  if it detects V+ (or a fork of it) is also loaded, since these mods
+  patch overlapping game behavior (Sailing: ship speed/controls;
+  Ranching: taming/breeding; Mining: mining damage/yield) and could
+  interact in ways neither author tested. Test your own setup after
+  enabling both.
 
 ## Building automatically (CI)
 
-`.github/workflows/build.yml` builds both plugins on every push/PR with no
-local Valheim install required: it anonymously downloads the Valheim
-dedicated server (for the game's managed assemblies) and the BepInEx pack
-via SteamCMD/curl on the runner, then builds and publicizes against those.
+`.github/workflows/build.yml` builds all three plugins (as a matrix, one
+job per mod) on every push/PR with no local Valheim install required: it
+anonymously downloads the Valheim dedicated server (for the game's
+managed assemblies) and the BepInEx pack via SteamCMD/curl on the runner,
+then builds and publicizes against those.
 
 - Every push/PR: open the run under the **Actions** tab and download the
-  `Sailing` and `Ranching` artifacts (each contains its `.dll`) — grab
-  these on each of your PCs for local testing.
-- Pushing a tag like `v1.1.10` also cuts a GitHub Release with both DLLs
-  attached.
+  `Sailing`, `Ranching`, and `Mining` artifacts (each contains its
+  `.dll`) — grab these on each of your PCs for local testing.
+- Pushing a tag like `v1.1.10` also cuts a GitHub Release with all three
+  DLLs attached.
 
 ## Building locally
 
@@ -73,6 +75,7 @@ Valheim install to build against, for the game's managed DLLs.
    ```
    dotnet build Sailing/Sailing.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
    dotnet build Ranching/Ranching.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
+   dotnet build Mining/Mining.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
    ```
    Alternatively, point straight at the managed/BepInEx folders with
    `-p:ManagedDir=... -p:BepInExDir=...` (this is what CI does).
@@ -80,6 +83,7 @@ Valheim install to build against, for the game's managed DLLs.
    ```
    dotnet build Sailing.sln -c Release
    dotnet build Ranching.sln -c Release
+   dotnet build Mining.sln -c Release
    ```
    The build automatically publicizes the game assemblies it needs
    (via `BepInEx.AssemblyPublicizer.MSBuild`), ILRepacks the plugin and
@@ -97,13 +101,14 @@ For each mod you want:
    connects.
 4. Start the server, then adjust settings in `BepInEx/config/` on the
    server if desired (`org.bepinex.plugins.sailing.cfg` /
-   `org.bepinex.plugins.ranching.cfg`) — connected clients will sync to
-   these values automatically.
+   `org.bepinex.plugins.ranching.cfg` / `org.bepinex.plugins.mining.cfg`)
+   — connected clients will sync to these values automatically.
 
 ## Credits
 
 Original mods by [blaxxun-boop](https://github.com/blaxxun-boop)
 ([Sailing](https://github.com/blaxxun-boop/sailing),
-[Ranching](https://github.com/blaxxun-boop/ranching)). This fork carries
+[Ranching](https://github.com/blaxxun-boop/ranching),
+[Mining](https://github.com/blaxxun-boop/mining)). This fork carries
 forward their upstream 1.0/Ashlands fixes for continued use on a private
 dedicated server.

@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mod: [Sailing, Ranching]
+        mod: [Sailing, Ranching, Mining]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -95,5 +95,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" artifacts/Sailing/Sailing.dll artifacts/Ranching/Ranching.dll \
+          gh release create "${{ github.ref_name }}" artifacts/Sailing/Sailing.dll artifacts/Ranching/Ranching.dll artifacts/Mining/Mining.dll \
             --repo "${{ github.repository }}" --generate-notes
