@@ -79,8 +79,12 @@ jobs:
           path: ${{ matrix.mod }}/bin/Release/${{ matrix.mod }}.dll
           if-no-files-found: error
 
+  # Publishes a release by itself for every push to the default branch that changes a mod
+  # (Sailing/, Ranching/, Mining/ or VERSION), and for any manual run, like SnakeWood. Nothing to
+  # tag by hand (sessions can't push tags anyway). The tag is v<MAJOR.MINOR>.<run number>, with
+  # MAJOR.MINOR from the VERSION file; each DLL keeps its own ModVersion, listed in the notes.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -88,12 +92,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check whether a mod changed
+        id: changed
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] \
+            || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$before" "${{ github.sha }}" | grep -qE '^(Sailing|Ranching|Mining)/|^VERSION$'; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only docs/CI changed; no release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/download-artifact@v4
+        if: steps.changed.outputs.release == 'true'
         with:
           path: artifacts
       - name: Create GitHub release
+        if: steps.changed.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" artifacts/Sailing/Sailing.dll artifacts/Ranching/Ranching.dll artifacts/Mining/Mining.dll \
-            --repo "${{ github.repository }}" --generate-notes
+          version="$(tr -d '[:space:]' < VERSION).${{ github.run_number }}"
+          {
+            echo "Mod versions in this build:"
+            for mod in Sailing Ranching Mining; do
+              echo "- $mod $(grep -oP 'ModVersion = "\K[^"]+' $mod/$mod.cs)"
+            done
+          } > notes.md
+          gh release create "v$version" artifacts/Sailing/Sailing.dll artifacts/Ranching/Ranching.dll artifacts/Mining/Mining.dll \
+            --target "${{ github.sha }}" --repo "${{ github.repository }}" --notes-file notes.md --generate-notes
