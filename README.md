@@ -58,8 +58,11 @@ then builds and publicizes against those.
 - Every push/PR: open the run under the **Actions** tab and download the
   `Sailing`, `Ranching`, and `Mining` artifacts (each contains its
   `.dll`) — grab these on each of your PCs for local testing.
-- Pushing a tag like `v1.1.10` also cuts a GitHub Release with all three
-  DLLs attached.
+- Every push to the default branch that changes a mod (`Sailing/`, `Ranching/`,
+  `Mining/` or `VERSION`) publishes a GitHub Release by itself, tagged
+  `v<MAJOR.MINOR>.<run number>` (MAJOR.MINOR from the `VERSION` file), with all
+  three DLLs attached and each mod's own version listed in the notes. Docs- or
+  CI-only pushes don't release; running the workflow by hand always does.
 
 ## Building locally
 
