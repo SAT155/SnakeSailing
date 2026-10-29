@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net481</TargetFramework>
-        <AssemblyName>Ranching</AssemblyName>
-        <RootNamespace>Ranching</RootNamespace>
-        <LangVersion>default</LangVersion>
+        <TargetFramework>net48</TargetFramework>
+        <AssemblyName>SnakeSkills</AssemblyName>
+        <RootNamespace>SnakeSkills</RootNamespace>
+        <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -86,11 +86,20 @@
             <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <Reference Include="CreatureLevelControlAPI">
-            <HintPath>Libs/CreatureLevelControlAPI.dll</HintPath>
+        <Reference Include="UnityEngine.InputLegacyModule">
+            <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="UnityEngine.PhysicsModule">
+            <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
+            <Private>false</Private>
         </Reference>
         <Reference Include="ServerSync">
             <HintPath>Libs/ServerSync.dll</HintPath>
+        </Reference>
+        <Reference Include="CreatureLevelControlAPI">
+            <HintPath>Libs/CreatureLevelControlAPI.dll</HintPath>
+            <Private>false</Private>
         </Reference>
         <Reference Include="SkillManager">
             <HintPath>Libs/SkillManager.dll</HintPath>
@@ -98,16 +107,23 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="Plugin.cs"/>
+        <Compile Include="SkillBackup.cs"/>
+        <Compile Include="ConfigImport.cs"/>
+        <Compile Include="Sailing.cs"/>
         <Compile Include="Ranching.cs"/>
+        <Compile Include="Mining.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
+        <EmbeddedResource Include="icons/sailing.png"/>
         <EmbeddedResource Include="icons/ranching.png"/>
+        <EmbeddedResource Include="icons/mining.png"/>
         <None Include="ILRepack.targets"/>
-        <None Include="Libs/CreatureLevelControlAPI.dll">
+        <None Include="Libs/ServerSync.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
-        <None Include="Libs/ServerSync.dll">
+        <None Include="Libs/CreatureLevelControlAPI.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
         <None Include="Libs/SkillManager.dll">

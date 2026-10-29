@@ -1,114 +1,56 @@
-# SnakeSailing
+# SnakeSailing → SnakeSkills
 
-Maintained forks of a couple of [Smoothbrain](https://valheim.hexium.gg/mods/Smoothbrain/) /
-[blaxxun-boop](https://github.com/blaxxun-boop) Valheim BepInEx mods, updated
-to work with the Valheim 1.0 / Ashlands game update and to build
-automatically, for use on a small private dedicated server.
+This repo builds **SnakeSkills**: maintained copies of three
+[Smoothbrain](https://valheim.hexium.gg/mods/Smoothbrain/) / [blaxxun-boop](https://github.com/blaxxun-boop)
+skill mods combined into one BepInEx plugin, updated for Valheim 1.0 / Ashlands and later, for a
+small private dedicated server. Player-facing details are in
+[`thunderstore/SnakeSkills/README.md`](thunderstore/SnakeSkills/README.md).
 
-| Mod | Source | What it does |
+| Skill | Source | File |
 | --- | --- | --- |
-| `Sailing/` | [blaxxun-boop/Sailing](https://github.com/blaxxun-boop/sailing) | Adds a Sailing skill: ships you build gain extra health, ships you command get faster, exploration radius while sailing increases with skill. Optional ship "nudge" hotkey. |
-| `Ranching/` | [blaxxun-boop/Ranching](https://github.com/blaxxun-boop/ranching) | Adds a Ranching skill: reduces taming time and increases item yield of tamed animals as skill increases. |
-| `Mining/` | [blaxxun-boop/Mining](https://github.com/blaxxun-boop/mining) | Adds a Mining skill: increases mining damage and ore yield, with an optional chance for deposits to explode, as skill increases. |
+| Sailing | [blaxxun-boop/Sailing](https://github.com/blaxxun-boop/sailing) 1.1.10 | `SnakeSkills/Sailing.cs` |
+| Ranching | [blaxxun-boop/Ranching](https://github.com/blaxxun-boop/ranching) 1.1.10 | `SnakeSkills/Ranching.cs` |
+| Mining | [blaxxun-boop/Mining](https://github.com/blaxxun-boop/mining) 1.1.8 | `SnakeSkills/Mining.cs` |
 
-## Multiplayer / dedicated server notes
+Until SnakeSkills the three were separate projects here (`Sailing/`, `Ranching/`, `Mining/`, see
+git history).
 
-- **Install each mod on the server AND on every client.** These are
-  client+server Harmony mods (they patch behavior that needs to run on both
-  sides), not server-only mods — a client without them will desync or
-  simply not get the effects.
-- Config is synced from the server to clients automatically via
-  [ServerSync](https://github.com/blaxxun-boop/ServerSync). By default
-  "Lock Configuration" is **On** for both mods, so only a server admin can
-  change settings, and connecting clients automatically pick up the
-  server's values — you don't need to hand-edit each client's config.
-- All game logic is stored on ZDOs and driven by the authoritative
-  server/host, so it stays consistent across all connected players.
-- Each mod is self-contained: its dependency DLLs (`SkillManager`,
-  `ServerSync`, and for Ranching, `CreatureLevelControlAPI`) are merged
-  into the built plugin DLL via ILRepack, so you only need to copy the one
-  `.dll` file per mod to `BepInEx/plugins/` — no extra DLLs to manage.
+## What changed from upstream
 
-## Requirements
+- **One plugin** (`com.snakesquad.snakeskills`, `SnakeSkills.dll`) with one ServerSync config.
+  Skill game logic is unchanged. Same skill names, so the same skill ids
+  (`Skill.fromName(name)` = hash of the English name): existing levels carry over.
+- **Skill backup (`SkillBackup.cs`).** Vanilla `Skills.Load` drops skill ids that aren't in the
+  `SkillType` enum (`IsSkillValid`), and the next save writes the list without them, so one
+  unmodded login wiped the custom skills. A `Player.Save` prefix copies each custom skill to
+  `Player.m_customData["SnakeSkills_<Name>"] = "level;accumulator"` (vanilla loads and saves that
+  dictionary as-is). After loading, any custom skill missing from the skill list is restored from
+  it; a skill that is present wins.
+- **Config import (`ConfigImport.cs`).** On the first start (no SnakeSkills .cfg yet), values are
+  copied from the old mods' .cfg files by section and key.
+- `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
+- Upstream's hard block on Valheim Plus is a warning instead.
 
-- Valheim 1.0+ (Ashlands) dedicated server and clients
-- [BepInEx 5](https://valheim.thunderstore.io/package/denikson/BepInExPack_Valheim/) installed on the server and every client
+## Building
 
-## Compatibility
+- **CI** (`.github/workflows/build.yml`) builds on every push with no game install: it downloads
+  the free Valheim dedicated server (SteamCMD, app 896660) for the game assemblies and the
+  BepInEx pack, builds `SnakeSkills.dll`, ILRepacks `SkillManager`, `ServerSync` and
+  `CreatureLevelControlAPI` into it, and packages `SnakeSkills-<version>.zip` for r2modman's
+  **Import local mod**.
+- **Releases** are automatic: every push to the default branch that changes `SnakeSkills/` or
+  `thunderstore/` publishes `v<MAJOR.MINOR>.<run number>` (MAJOR.MINOR from
+  `thunderstore/SnakeSkills/manifest.json`) with the zip attached. A manual run on another branch
+  publishes a pre-release for testing.
+- **Locally:** `dotnet build SnakeSkills/SnakeSkills.csproj -c Release` with Valheim and BepInEx
+  installed (Steam install auto-detected, or pass `-p:GamePath=...`, or
+  `-p:ManagedDir=... -p:BepInExDir=...`).
 
-- **Valheim Plus**: upstream hard-blocked all three mods from loading
-  alongside any plugin with the GUID `org.bepinex.plugins.valheim_plus`
-  (this includes forks that keep that GUID, e.g.
-  [Grantapher's temporary V+ build](https://thunderstore.io/c/valheim/p/Grantapher/ValheimPlus_Grantapher_Temporary/)).
-  That hard block has been removed here — each mod now just logs a warning
-  if it detects V+ (or a fork of it) is also loaded, since these mods
-  patch overlapping game behavior (Sailing: ship speed/controls;
-  Ranching: taming/breeding; Mining: mining damage/yield) and could
-  interact in ways neither author tested. Test your own setup after
-  enabling both.
-
-## Building automatically (CI)
-
-`.github/workflows/build.yml` builds all three plugins (as a matrix, one
-job per mod) on every push/PR with no local Valheim install required: it
-anonymously downloads the Valheim dedicated server (for the game's
-managed assemblies) and the BepInEx pack via SteamCMD/curl on the runner,
-then builds and publicizes against those.
-
-- Every push/PR: open the run under the **Actions** tab and download the
-  `Sailing`, `Ranching`, and `Mining` artifacts (each contains its
-  `.dll`) — grab these on each of your PCs for local testing.
-- Pushing a tag like `v1.1.10` also cuts a GitHub Release with all three
-  DLLs attached.
-
-## Building locally
-
-Each mod is a standard BepInEx/Harmony C# class library (SDK-style
-project, buildable with the `dotnet` CLI). For a local build you need a
-Valheim install to build against, for the game's managed DLLs.
-
-1. Install the .NET SDK.
-2. Make sure Valheim is installed via Steam. Each project auto-detects the
-   game path (`~/.steam/steam/steamapps/common/Valheim` on Linux, the
-   Steam registry key on Windows). Override it by setting the `GamePath`
-   MSBuild property if auto-detection doesn't find it, e.g.:
-   ```
-   dotnet build Sailing/Sailing.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
-   dotnet build Ranching/Ranching.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
-   dotnet build Mining/Mining.csproj -c Release -p:GamePath="C:\Program Files (x86)\Steam\steamapps\common\Valheim"
-   ```
-   Alternatively, point straight at the managed/BepInEx folders with
-   `-p:ManagedDir=... -p:BepInExDir=...` (this is what CI does).
-3. Build in Release configuration (each mod has its own `.sln`):
-   ```
-   dotnet build Sailing.sln -c Release
-   dotnet build Ranching.sln -c Release
-   dotnet build Mining.sln -c Release
-   ```
-   The build automatically publicizes the game assemblies it needs
-   (via `BepInEx.AssemblyPublicizer.MSBuild`), ILRepacks the plugin and
-   its dependencies into a single DLL, and — only on Windows, when
-   `GamePath` resolves to a real folder — copies it straight into
-   `<GamePath>/BepInEx/plugins/`.
-
-## Installing on the dedicated server
-
-For each mod you want:
-
-1. Build (or download) its `.dll`.
-2. Copy it into `BepInEx/plugins/` on the dedicated server.
-3. Copy the same `.dll` into `BepInEx/plugins/` on every client that
-   connects.
-4. Start the server, then adjust settings in `BepInEx/config/` on the
-   server if desired (`org.bepinex.plugins.sailing.cfg` /
-   `org.bepinex.plugins.ranching.cfg` / `org.bepinex.plugins.mining.cfg`)
-   — connected clients will sync to these values automatically.
+`tools/make_icon.py` redraws the package icon from the three skill icons.
 
 ## Credits
 
 Original mods by [blaxxun-boop](https://github.com/blaxxun-boop)
 ([Sailing](https://github.com/blaxxun-boop/sailing),
 [Ranching](https://github.com/blaxxun-boop/ranching),
-[Mining](https://github.com/blaxxun-boop/mining)). This fork carries
-forward their upstream 1.0/Ashlands fixes for continued use on a private
-dedicated server.
+[Mining](https://github.com/blaxxun-boop/mining)). This repo carries forward their 1.0/Ashlands fixes for a private dedicated server.

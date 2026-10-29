@@ -1,31 +1,21 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using BepInEx;
-using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using HarmonyLib;
 using JetBrains.Annotations;
-using ServerSync;
 using SkillManager;
 using UnityEngine;
+using static SnakeSkills.SnakeSkillsPlugin;
 using Random = UnityEngine.Random;
 
-namespace Ranching;
+namespace SnakeSkills;
 
-[BepInPlugin(ModGUID, ModName, ModVersion)]
-[BepInDependency("org.bepinex.plugins.creaturelevelcontrol", BepInDependency.DependencyFlags.SoftDependency)]
-public class Ranching : BaseUnityPlugin
+// Ranching skill, from blaxxun-boop's Ranching 1.1.10. Only the config layout changed.
+internal static class Ranching
 {
-	private const string ModName = "Ranching";
-	private const string ModVersion = "1.1.10";
-	private const string ModGUID = "org.bepinex.plugins.ranching";
-	private const string ValheimPlusGUID = "org.bepinex.plugins.valheim_plus";
+	private const string Section = "4 - Ranching";
 
-	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
-
-	private static ConfigEntry<Toggle> serverConfigLocked = null!;
 	private static ConfigEntry<float> ranchingItemFactor = null!;
 	private static ConfigEntry<float> ranchingTamingFactor = null!;
 	private static ConfigEntry<int> ranchingFoodLevel = null!;
@@ -36,32 +26,9 @@ public class Ranching : BaseUnityPlugin
 	private static ConfigEntry<float> experienceGainedFactor = null!;
 	private static ConfigEntry<int> experienceLoss = null!;
 
-	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
-	{
-		ConfigEntry<T> configEntry = Config.Bind(group, name, value, description);
-
-		SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
-		syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
-
-		return configEntry;
-	}
-
-	private ConfigEntry<T> config<T>(string group, string name, T value, string description, bool synchronizedSetting = true) => config(group, name, value, new ConfigDescription(description), synchronizedSetting);
-
-	private enum Toggle
-	{
-		On = 1,
-		Off = 0,
-	}
-
-	private class ConfigurationManagerAttributes
-	{
-		[UsedImplicitly] public bool? ShowRangeAsPercent;
-	}
-
 	private static Skill ranching = null!;
 
-	public void Awake()
+	public static void Init(SnakeSkillsPlugin mod)
 	{
 		ranching = new Skill("Ranching", "ranching.png");
 		ranching.Description.English("Reduces the time required to tame animals and increases item yield of tamed animals.");
@@ -69,30 +36,19 @@ public class Ranching : BaseUnityPlugin
 		ranching.Description.German("Reduziert die Zeit, die benötigt wird, um ein Tier zu zähmen und erhöht die Ausbeute von gezähmten Tieren.");
 		ranching.Configurable = false;
 
-		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
-		configSync.AddLockingConfigEntry(serverConfigLocked);
-		ranchingItemFactor = config("2 - Ranching", "Item Drop Factor", 2f, new ConfigDescription("Item drop factor for tamed creatures at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
-		ranchingTamingFactor = config("2 - Ranching", "Taming Factor", 2f, new ConfigDescription("Speed at which creatures get tame at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
-		ranchingFoodLevel = config("2 - Ranching", "Food Level Requirement", 10, new ConfigDescription("Minimum required skill level to see when tamed creatures will become hungry again. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }));
-		ranchingCalmLevel = config("2 - Ranching", "Calming Level Requirement", 20, new ConfigDescription("Minimum required skill level to calm nearby taming creatures. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }));
-		ranchingPregnancyLevel = config("2 - Ranching", "Pregnancy Level Requirement", 40, new ConfigDescription("Minimum required skill level to get pregnancy related information of tame creatures. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }));
-		ranchingLevelUpLevel = config("2 - Ranching", "Level Up Level Requirement", 50, new ConfigDescription("Minimum required skill level to get a chance for offspring to be one level higher than their parent. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }));
-		levelUpChance = config("2 - Ranching", "Level Up Chance", 5, new ConfigDescription("Chance for offspring to level up, if the level up level requirement is reached.", new AcceptableValueRange<int>(0, 100)));
-		experienceGainedFactor = config("3 - Other", "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the ranching skill.", new AcceptableValueRange<float>(0.01f, 5f)));
+		ranchingItemFactor = mod.config(Section, "Item Drop Factor", 2f, new ConfigDescription("Item drop factor for tamed creatures at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), RanchingGUID, "2 - Ranching");
+		ranchingTamingFactor = mod.config(Section, "Taming Factor", 2f, new ConfigDescription("Speed at which creatures get tame at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), RanchingGUID, "2 - Ranching");
+		ranchingFoodLevel = mod.config(Section, "Food Level Requirement", 10, new ConfigDescription("Minimum required skill level to see when tamed creatures will become hungry again. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), RanchingGUID, "2 - Ranching");
+		ranchingCalmLevel = mod.config(Section, "Calming Level Requirement", 20, new ConfigDescription("Minimum required skill level to calm nearby taming creatures. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), RanchingGUID, "2 - Ranching");
+		ranchingPregnancyLevel = mod.config(Section, "Pregnancy Level Requirement", 40, new ConfigDescription("Minimum required skill level to get pregnancy related information of tame creatures. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), RanchingGUID, "2 - Ranching");
+		ranchingLevelUpLevel = mod.config(Section, "Level Up Level Requirement", 50, new ConfigDescription("Minimum required skill level to get a chance for offspring to be one level higher than their parent. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), RanchingGUID, "2 - Ranching");
+		levelUpChance = mod.config(Section, "Level Up Chance", 5, new ConfigDescription("Chance for offspring to level up, if the level up level requirement is reached.", new AcceptableValueRange<int>(0, 100)), RanchingGUID, "2 - Ranching");
+		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the ranching skill.", new AcceptableValueRange<float>(0.01f, 5f)), RanchingGUID, "3 - Other");
 		experienceGainedFactor.SettingChanged += (_, _) => ranching.SkillGainFactor = experienceGainedFactor.Value;
 		ranching.SkillGainFactor = experienceGainedFactor.Value;
-		experienceLoss = config("3 - Other", "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the ranching skill on death.", new AcceptableValueRange<int>(0, 100)));
+		experienceLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the ranching skill on death.", new AcceptableValueRange<int>(0, 100)), RanchingGUID, "3 - Other");
 		experienceLoss.SettingChanged += (_, _) => ranching.SkillLoss = experienceLoss.Value;
 		ranching.SkillLoss = experienceLoss.Value;
-
-		Assembly assembly = Assembly.GetExecutingAssembly();
-		Harmony harmony = new(ModGUID);
-		harmony.PatchAll(assembly);
-
-		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
-		{
-			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods can patch creature taming/breeding behavior, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
-		}
 	}
 
 	[HarmonyPatch(typeof(Player), nameof(Player.Awake))]

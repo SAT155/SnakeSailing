@@ -1,29 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Reflection;
-using BepInEx;
-using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using HarmonyLib;
 using JetBrains.Annotations;
-using ServerSync;
 using SkillManager;
 using UnityEngine;
+using static SnakeSkills.SnakeSkillsPlugin;
 using Random = UnityEngine.Random;
 
-namespace Mining;
+namespace SnakeSkills;
 
-[BepInPlugin(ModGUID, ModName, ModVersion)]
-public class Mining : BaseUnityPlugin
+// Mining skill, from blaxxun-boop's Mining 1.1.8. Only the config layout changed.
+internal static class Mining
 {
-	private const string ModName = "Mining";
-	private const string ModVersion = "1.1.8";
-	private const string ModGUID = "org.bepinex.plugins.mining";
-	private const string ValheimPlusGUID = "org.bepinex.plugins.valheim_plus";
+	private const string Section = "5 - Mining";
 
-	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
-
-	private static ConfigEntry<Toggle> serverConfigLocked = null!;
 	private static ConfigEntry<float> miningDamageFactor = null!;
 	private static ConfigEntry<float> miningItemYieldFactor = null!;
 	private static ConfigEntry<KeyboardShortcut> explosionToggleHotkey = null!;
@@ -34,32 +25,9 @@ public class Mining : BaseUnityPlugin
 
 	private static bool explosiveMining = true;
 
-	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
-	{
-		ConfigEntry<T> configEntry = Config.Bind(group, name, value, description);
-
-		SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
-		syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
-
-		return configEntry;
-	}
-
-	private ConfigEntry<T> config<T>(string group, string name, T value, string description, bool synchronizedSetting = true) => config(group, name, value, new ConfigDescription(description), synchronizedSetting);
-
-	private enum Toggle
-	{
-		On = 1,
-		Off = 0,
-	}
-
-	private class ConfigurationManagerAttributes
-	{
-		[UsedImplicitly] public bool? ShowRangeAsPercent;
-	}
-
 	private static Skill mining = null!;
 
-	public void Awake()
+	public static void Init(SnakeSkillsPlugin mod)
 	{
 		mining = new Skill("Mining", "mining.png");
 		mining.Description.English("Increases damage done while mining and item yield from ore deposits.");
@@ -67,31 +35,20 @@ public class Mining : BaseUnityPlugin
 		mining.Description.German("Erhöht den Schaden während Bergbau-Aktivitäten und erhöht die Ausbeute von Erzvorkommen.");
 		mining.Configurable = false;
 
-		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
-		configSync.AddLockingConfigEntry(serverConfigLocked);
-		miningDamageFactor = config("2 - Mining", "Mining Damage Factor", 3f, new ConfigDescription("Mining damage factor at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
-		miningItemYieldFactor = config("2 - Mining", "Mining Yield Factor", 2f, new ConfigDescription("Mining yield factor at skill level 100.", new AcceptableValueRange<float>(1f, 5f)));
-		explosionMinimumLevel = config("2 - Mining", "Mining Explosion Level Requirement", 50, new ConfigDescription("Minimum required skill level to have a chance for the deposit to explode. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }));
-		explosionChance = config("2 - Mining", "Mining Explosion Chance", 1f, new ConfigDescription("Mining explosion chance at skill level 100.", new AcceptableValueRange<float>(0, 100)));
-		explosionToggleHotkey = config("2 - Mining", "Toggle Explosive Mining Hotkey", new KeyboardShortcut(KeyCode.T, KeyCode.LeftControl), new ConfigDescription("Shortcut to press to toggle explosion chance off and on. Please note that you have to stand still, to toggle this."), false);
-		experienceGainedFactor = config("3 - Other", "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the mining skill.", new AcceptableValueRange<float>(0.01f, 5f)));
+		miningDamageFactor = mod.config(Section, "Mining Damage Factor", 3f, new ConfigDescription("Mining damage factor at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), MiningGUID, "2 - Mining");
+		miningItemYieldFactor = mod.config(Section, "Mining Yield Factor", 2f, new ConfigDescription("Mining yield factor at skill level 100.", new AcceptableValueRange<float>(1f, 5f)), MiningGUID, "2 - Mining");
+		explosionMinimumLevel = mod.config(Section, "Mining Explosion Level Requirement", 50, new ConfigDescription("Minimum required skill level to have a chance for the deposit to explode. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), MiningGUID, "2 - Mining");
+		explosionChance = mod.config(Section, "Mining Explosion Chance", 1f, new ConfigDescription("Mining explosion chance at skill level 100.", new AcceptableValueRange<float>(0, 100)), MiningGUID, "2 - Mining");
+		explosionToggleHotkey = mod.config(Section, "Toggle Explosive Mining Hotkey", new KeyboardShortcut(KeyCode.T, KeyCode.LeftControl), new ConfigDescription("Shortcut to press to toggle explosion chance off and on. Please note that you have to stand still, to toggle this."), MiningGUID, "2 - Mining", false);
+		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the mining skill.", new AcceptableValueRange<float>(0.01f, 5f)), MiningGUID, "3 - Other");
 		experienceGainedFactor.SettingChanged += (_, _) => mining.SkillGainFactor = experienceGainedFactor.Value;
 		mining.SkillGainFactor = experienceGainedFactor.Value;
-		experienceLoss = config("3 - Other", "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the mining skill on death.", new AcceptableValueRange<int>(0, 100)));
+		experienceLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the mining skill on death.", new AcceptableValueRange<int>(0, 100)), MiningGUID, "3 - Other");
 		experienceLoss.SettingChanged += (_, _) => mining.SkillLoss = experienceLoss.Value;
 		mining.SkillLoss = experienceLoss.Value;
-
-		Assembly assembly = Assembly.GetExecutingAssembly();
-		Harmony harmony = new(ModGUID);
-		harmony.PatchAll(assembly);
-
-		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
-		{
-			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods can patch mining damage/yield behavior, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
-		}
 	}
 
-	private void Update()
+	internal static void Update()
 	{
 		if (explosionToggleHotkey.Value.IsDown())
 		{

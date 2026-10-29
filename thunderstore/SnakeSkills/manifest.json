@@ -1,0 +1,10 @@
+{
+  "name": "SnakeSkills",
+  "author": "blaxxun-boop, edits by SAT",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/SAT155/SnakeSailing",
+  "description": "Sailing, Ranching and Mining skills in one mod. Skill levels survive playing a session without the mod.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2350"
+  ]
+}

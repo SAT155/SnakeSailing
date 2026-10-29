@@ -1,31 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using BepInEx;
-using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using HarmonyLib;
 using JetBrains.Annotations;
-using ServerSync;
 using SkillManager;
 using UnityEngine;
+using static SnakeSkills.SnakeSkillsPlugin;
 
-namespace Sailing;
+namespace SnakeSkills;
 
-[BepInPlugin(ModGUID, ModName, ModVersion)]
-public class Sailing : BaseUnityPlugin
+// Sailing skill, from blaxxun-boop's Sailing 1.1.10. Only the config layout changed.
+internal static class Sailing
 {
-	private const string ModName = "Sailing";
-	private const string ModVersion = "1.1.10";
-	private const string ModGUID = "org.bepinex.plugins.sailing";
-	private const string ValheimPlusGUID = "org.bepinex.plugins.valheim_plus";
+	private const string Section = "2 - Sailing";
+	private const string SpeedSection = "3 - Sailing Ship Speed";
 
-	private static readonly ConfigSync configSync = new(ModGUID) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
-
-	private static ConfigEntry<Toggle> serverConfigLocked = null!;
 	private static ConfigEntry<float> explorationRadiusIncrease = null!;
 	private static ConfigEntry<float> shipHealthIncrease = null!;
 	private static ConfigEntry<float> experienceGainedFactor = null!;
@@ -39,37 +31,9 @@ public class Sailing : BaseUnityPlugin
 	private static readonly Dictionary<string, ConfigEntry<int>> shipHalfRequirement = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> shipFullRequirement = new();
 
-	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
-	{
-		ConfigEntry<T> configEntry = Config.Bind(group, name, value, description);
-
-		SyncedConfigEntry<T> syncedConfigEntry = configSync.AddConfigEntry(configEntry);
-		syncedConfigEntry.SynchronizedConfig = synchronizedSetting;
-
-		return configEntry;
-	}
-
-	private ConfigEntry<T> config<T>(string group, string name, T value, string description, bool synchronizedSetting = true) => config(group, name, value, new ConfigDescription(description), synchronizedSetting);
-
-	private enum Toggle
-	{
-		On = 1,
-		Off = 0,
-	}
-
-	private class ConfigurationManagerAttributes
-	{
-		[UsedImplicitly] public bool? ShowRangeAsPercent;
-		[UsedImplicitly] public int? Order;
-		[UsedImplicitly] public string? Description;
-		[UsedImplicitly] public string? DispName;
-	}
-
 	private static Skill sailing = null!;
 
-	private static Sailing mod = null!;
-
-	public void Awake()
+	public static void Init(SnakeSkillsPlugin mod)
 	{
 		sailing = new Skill("Sailing", "sailing.png");
 		sailing.Description.English("Increases the health of ships built by you, sailing speed of ships commanded by you and your exploration radius while on a ship.");
@@ -77,30 +41,17 @@ public class Sailing : BaseUnityPlugin
 		sailing.Description.German("Erhöht die Lebenspunkte von dir gebauter Schiffe, erhöht die Geschwindigkeit von Schiffen, die du steuerst und erhöht deinen Erkundungsradius, wenn du dich auf einem Schiff befindest.");
 		sailing.Configurable = false;
 
-		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
-		configSync.AddLockingConfigEntry(serverConfigLocked);
-		shipNudgeModifierkey = config("1 - General", "Ship Nudge Modifier Key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Modifier key to hold, to nudge your ship. Clear value to disable this."), false);
-		explorationRadiusIncrease = config("3 - Other", "Exploration Radius Factor", 5f, new ConfigDescription("Exploration radius factor while on ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
-		shipHealthIncrease = config("3 - Other", "Ship Health Factor", 2f, new ConfigDescription("Health factor for ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)));
-		experienceGainedFactor = config("3 - Other", "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the sailing skill.", new AcceptableValueRange<float>(0.01f, 5f)));
+		shipNudgeModifierkey = mod.config(Section, "Ship Nudge Modifier Key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Modifier key to hold, to nudge your ship. Clear value to disable this."), SailingGUID, "1 - General", false);
+		explorationRadiusIncrease = mod.config(Section, "Exploration Radius Factor", 5f, new ConfigDescription("Exploration radius factor while on ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
+		shipHealthIncrease = mod.config(Section, "Ship Health Factor", 2f, new ConfigDescription("Health factor for ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
+		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the sailing skill.", new AcceptableValueRange<float>(0.01f, 5f)), SailingGUID, "3 - Other");
 		experienceGainedFactor.SettingChanged += (_, _) => sailing.SkillGainFactor = experienceGainedFactor.Value;
 		sailing.SkillGainFactor = experienceGainedFactor.Value;
-		experienceLoss = config("3 - Other", "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the sailing skill on death.", new AcceptableValueRange<int>(0, 100)));
+		experienceLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the sailing skill on death.", new AcceptableValueRange<int>(0, 100)), SailingGUID, "3 - Other");
 		experienceLoss.SettingChanged += (_, _) => sailing.SkillLoss = experienceLoss.Value;
 		sailing.SkillLoss = experienceLoss.Value;
-		allowShipNudge = config("3 - Other", "Allow Ship Nudge", Toggle.On, new ConfigDescription("If on, players can press a hotkey, to give their ship a nudge, if it is stuck."));
-		nudgeForce = config("3 - Other", "Ship Nudge Force", 10f, new ConfigDescription("Impulse force for ship nudge."));
-
-		Assembly assembly = Assembly.GetExecutingAssembly();
-		Harmony harmony = new(ModGUID);
-		harmony.PatchAll(assembly);
-
-		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
-		{
-			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods patch ship speed and controls, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
-		}
-
-		mod = this;
+		allowShipNudge = mod.config(Section, "Allow Ship Nudge", Toggle.On, new ConfigDescription("If on, players can press a hotkey, to give their ship a nudge, if it is stuck."), SailingGUID, "3 - Other");
+		nudgeForce = mod.config(Section, "Ship Nudge Force", 10f, new ConfigDescription("Impulse force for ship nudge."), SailingGUID, "3 - Other");
 	}
 
 	[HarmonyPatch(typeof(WearNTear), nameof(WearNTear.OnPlaced))]
@@ -160,10 +111,11 @@ public class Sailing : BaseUnityPlugin
 				continue;
 			}
 
-			shipSpeedIncrease[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Speed Factor", 1.5f, new ConfigDescription($"Speed factor for {english.Localize(pieceName)} at skill level 100.", new AcceptableValueRange<float>(1f, 3f), new ConfigurationManagerAttributes { Order = --order, DispName = $"{Localization.instance.Localize(pieceName)} Speed Factor", Description = $"Speed factor for {Localization.instance.Localize(pieceName)} at skill level 100." }));
-			shipPaddleRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Paddle Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to paddle a {english.Localize(pieceName)}.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Paddle Requirement", Description = $"Required sailing skill level to be able to paddle a {Localization.instance.Localize(pieceName)}." }));
-			shipHalfRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Half Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with reduced sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Half Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with reduced sail." }));
-			shipFullRequirement[pieceName] = mod.config("2 - Ship Speed", $"{regex.Replace(english.Localize(pieceName), "")} Full Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with full sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Full Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with full sail." }));
+			string key = regex.Replace(english.Localize(pieceName), "");
+			shipSpeedIncrease[pieceName] = instance.config(SpeedSection, $"{key} Speed Factor", 1.5f, new ConfigDescription($"Speed factor for {english.Localize(pieceName)} at skill level 100.", new AcceptableValueRange<float>(1f, 3f), new ConfigurationManagerAttributes { Order = --order, DispName = $"{Localization.instance.Localize(pieceName)} Speed Factor", Description = $"Speed factor for {Localization.instance.Localize(pieceName)} at skill level 100." }), SailingGUID, "2 - Ship Speed");
+			shipPaddleRequirement[pieceName] = instance.config(SpeedSection, $"{key} Paddle Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to paddle a {english.Localize(pieceName)}.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Paddle Requirement", Description = $"Required sailing skill level to be able to paddle a {Localization.instance.Localize(pieceName)}." }), SailingGUID, "2 - Ship Speed");
+			shipHalfRequirement[pieceName] = instance.config(SpeedSection, $"{key} Half Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with reduced sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Half Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with reduced sail." }), SailingGUID, "2 - Ship Speed");
+			shipFullRequirement[pieceName] = instance.config(SpeedSection, $"{key} Full Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with full sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Full Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with full sail." }), SailingGUID, "2 - Ship Speed");
 		}
 	}
 
