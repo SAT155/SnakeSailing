@@ -139,7 +139,20 @@ internal static class Landscaping
 
 	internal static void Update()
 	{
-		if (!Active || sizeWithWheel.Value == Toggle.Off || Player.m_localPlayer is not { } player || !HoeBuildMode(player) || !Input.GetKey(KeyCode.LeftAlt))
+		if (!Active || sizeWithWheel.Value == Toggle.Off || Player.m_localPlayer is not { } player || !HoeBuildMode(player))
+		{
+			return;
+		}
+
+		// Middle click: back to the default size (the biggest the skill allows, growing with it).
+		if (Input.GetMouseButtonDown(2))
+		{
+			brushSize.Value = 0f;
+			player.Message(MessageHud.MessageType.TopLeft, $"Hoe brush: reset to the biggest your skill allows ({MaxScale(player):0.0}x)");
+			return;
+		}
+
+		if (!Input.GetKey(KeyCode.LeftAlt))
 		{
 			return;
 		}
@@ -161,6 +174,57 @@ internal static class Landscaping
 		float scale = Mathf.Clamp(BrushScale(player) + Mathf.Sign(wheel) * 0.1f, 1f, max);
 		brushSize.Value = Mathf.Round(scale * 10f) / 10f;
 		player.Message(MessageHud.MessageType.TopLeft, $"Hoe brush: {scale:0.0}x (max {max:0.0}x)");
+	}
+
+	// Middle click is vanilla's "remove piece"; with the hoe out it resets the brush instead.
+	[HarmonyPatch(typeof(Player), nameof(Player.RemovePiece))]
+	private static class NoRemoveWithHoe
+	{
+		private static bool Prefix(Player __instance) => !(Active && sizeWithWheel.Value == Toggle.On && __instance == Player.m_localPlayer && HoldingHoe(__instance));
+	}
+
+	private const string HintMarker = "<color=#c0c0c0>";
+
+	// Control hints under each hoe tool's description in the build menu (the description is
+	// localized as a whole, so the vanilla token in front still works).
+	internal static void AddHints(PieceTable table)
+	{
+		if (!Active)
+		{
+			return;
+		}
+		foreach (GameObject go in table.m_pieces)
+		{
+			if (go == null || go.GetComponent<Piece>() is not { } piece || (piece.m_description ?? "").Contains(HintMarker))
+			{
+				continue;
+			}
+			TerrainOp.Settings? s = go.GetComponent<TerrainOp>()?.m_settings;
+			bool restore = RestoreTerrain.IsRestorePiece(go);
+			if (s == null && !restore)
+			{
+				continue;
+			}
+
+			List<string> lines = new();
+			if (sizeWithWheel.Value == Toggle.On)
+			{
+				lines.Add("Left Alt + mouse wheel: brush size (bigger with Landscaping)");
+				lines.Add("Middle click: reset brush size");
+			}
+			if (s != null && !s.m_raise && (s.m_level ? easeLevel.Value : easePaths.Value) == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			{
+				lines.Add(rampNeedsShift.Value == Toggle.On ? "Hold Shift: shape into a cart ramp (faces where you look)" : "Shapes into a cart ramp (faces where you look)");
+			}
+			if (s != null && !s.m_raise && flattenBumps.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			{
+				lines.Add("Knocks down lone bumps");
+			}
+			if (lines.Count > 0)
+			{
+				piece.m_description = (piece.m_description ?? "") + "\n\n" + HintMarker + string.Join("\n", lines) + "</color>";
+			}
+		}
 	}
 
 	[HarmonyPatch(typeof(Player), nameof(Player.CheckRun))]

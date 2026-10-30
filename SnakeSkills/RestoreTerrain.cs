@@ -138,6 +138,7 @@ internal static class RestoreTerrain
 			}
 
 			Setup(__instance);
+			Landscaping.AddHints(__instance);
 			if (Unlocked(player))
 			{
 				knownRecipies.Add(PieceName);

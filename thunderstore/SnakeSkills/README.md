@@ -24,8 +24,8 @@ for the SnakeSquad server.
   the brush. Hold Shift while striking to shape the brush into an even ramp a cart can take
   (25 degrees). If the ground is gentle it follows the ground's slope; if it's too steep the ramp
   runs across the hill, in the direction closest to where you look, like a road winding up a
-  hillside. The brush size you pick stays put as the skill rises, and Alt + wheel no longer zooms
-  the camera. Older behaviour: *Ramp Mode* Relax, *Ramp Only With Shift* Off and *Shift Ramp Style*
+  hillside. The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
+  tool's description in the build menu lists these controls. Older behaviour: *Ramp Mode* Relax, *Ramp Only With Shift* Off and *Shift Ramp Style*
   Spread give the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
   between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
