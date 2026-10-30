@@ -76,8 +76,8 @@ internal static class Landscaping
 		experienceLoss.SettingChanged += (_, _) => landscaping.SkillLoss = experienceLoss.Value;
 		landscaping.SkillLoss = experienceLoss.Value;
 		noSprint = mod.config(Section, "No Sprint With Hoe", Toggle.On, "If on, Shift doesn't sprint while the hoe's build mode is open, so stamina keeps recovering between strikes.");
-		flattenBumps = mod.config(Section, "Flatten Bumps", Toggle.On, "If on, level ground, path and paved road strikes lower any single terrain point in the brush that sticks up above all of its neighbours (the little bumps you'd otherwise hunt with a pickaxe).");
-		bumpHeight = mod.config(Section, "Bump Height", 0.1f, new ConfigDescription("How far (m) a point has to stick up above its highest neighbour to count as a bump.", new AcceptableValueRange<float>(0.02f, 1f)));
+		flattenBumps = mod.config(Section, "Flatten Bumps", Toggle.On, "If on, level ground, path and paved road strikes lower small lumps in the brush (single points or up to three points wide) that stick up above the ground around them, also on sloped roads: the little bumps you'd otherwise hunt with a pickaxe.");
+		bumpHeight = mod.config(Section, "Bump Height", 0.1f, new ConfigDescription("How far (m) a point has to stick up above the ground around it to count as a bump (lumps up to three points wide need twice this).", new AcceptableValueRange<float>(0.02f, 1f)));
 		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
 		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
@@ -261,6 +261,7 @@ internal static class Landscaping
 		public float radius;
 		public bool level;
 		public bool path;
+		public bool raise;
 		public TerrainZones.Ramp? ramp;
 	}
 
@@ -329,6 +330,7 @@ internal static class Landscaping
 				radius = s.m_level ? s.m_levelRadius : Mathf.Max(s.m_smooth ? s.m_smoothRadius : 0f, s.m_paintRadius),
 				level = s.m_level && !s.m_raise,
 				path = !s.m_level && !s.m_raise && (s.m_smooth || s.m_paintCleared),
+				raise = s.m_raise,
 			};
 
 			// The ramp's slope is read from the ground before the strike changes it.
@@ -347,7 +349,20 @@ internal static class Landscaping
 
 		private static void Postfix(Strike? __state)
 		{
-			if (__state == null || (!__state.level && !__state.path) || __state.radius < 0.5f)
+			if (__state == null)
+			{
+				return;
+			}
+			if (!__state.level && !__state.path)
+			{
+				// Raise ground: say so when the ground can't go any higher.
+				if (__state.raise && TerrainZones.AtLimit(__state.center, __state.radius, true, false))
+				{
+					CantDo("This ground can't be raised any higher (8 m above where the world made it).");
+				}
+				return;
+			}
+			if (__state.radius < 0.5f)
 			{
 				return;
 			}
@@ -360,7 +375,51 @@ internal static class Landscaping
 			{
 				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, relax ? maxSlope.Value : -1f, relax && __state.level, rampStyle.Value, __state.ramp);
 			}
+
+			if (TerrainZones.AtLimit(__state.center, __state.radius, true, true))
+			{
+				CantDo("Part of this ground can't be dug or raised further (8 m from where the world made it).");
+			}
+			else if (RockInBrush(__state.center, __state.radius))
+			{
+				CantDo("There is rock here that isn't terrain; the hoe can't flatten it. Use a pickaxe.");
+			}
 		}
+	}
+
+	// Feedback when a strike left something it couldn't change: a message and a short, dim red
+	// tint on the brush ghost.
+	private static float flashUntil;
+	private static float lastMessage;
+
+	private static void CantDo(string message)
+	{
+		flashUntil = Time.time + 0.6f;
+		if (Player.m_localPlayer is { } player && Time.time - lastMessage > 3f)
+		{
+			lastMessage = Time.time;
+			player.Message(MessageHud.MessageType.TopLeft, message);
+		}
+	}
+
+	// A rock object (not terrain, not something built) sticking up in the brush. Mine rocks,
+	// destructible rocks and plain static rocks all have "rock" in their name.
+	private static bool RockInBrush(Vector3 center, float radius)
+	{
+		foreach (Collider collider in Physics.OverlapSphere(center, radius * 0.8f))
+		{
+			if (collider is TerrainCollider || collider.isTrigger || collider.GetComponentInParent<Heightmap>() != null || collider.GetComponentInParent<Piece>() != null || collider.GetComponentInParent<Character>() != null)
+			{
+				continue;
+			}
+			GameObject root = collider.transform.root.gameObject;
+			bool rock = collider.GetComponentInParent<MineRock5>() != null || collider.GetComponentInParent<MineRock>() != null || root.name.IndexOf("rock", StringComparison.OrdinalIgnoreCase) >= 0;
+			if (rock && collider.bounds.max.y > center.y + 0.2f)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// Ghost: show the brush at the size it will strike.
@@ -376,6 +435,8 @@ internal static class Landscaping
 				return;
 			}
 
+			Tint(ghost, Time.time < flashUntil);
+
 			float scale = BrushScale(__instance);
 			foreach (CircleProjector circle in ghost.GetComponentsInChildren<CircleProjector>(true))
 			{
@@ -388,6 +449,50 @@ internal static class Landscaping
 			if (FindChild(ghost.transform, "_GhostOnly") is { } ghostOnly)
 			{
 				ghostOnly.localScale = Vector3.one * (BaseSize(ghostOnly, ghostOnly.localScale.x) * scale);
+			}
+		}
+
+		private static readonly Dictionary<int, Color> baseColors = new();
+		private static readonly Color dimRed = new(0.5f, 0.12f, 0.1f);
+
+		// Projectors get their own material copy (so the prefab's isn't changed); renderers'
+		// .material already is a per-object copy.
+		private static void Tint(GameObject ghost, bool on)
+		{
+			if (baseColors.Count > 512)
+			{
+				baseColors.Clear();
+			}
+			foreach (Projector projector in ghost.GetComponentsInChildren<Projector>(true))
+			{
+				if (projector.material == null)
+				{
+					continue;
+				}
+				int id = projector.GetInstanceID();
+				if (!baseColors.ContainsKey(id))
+				{
+					if (!on || !projector.material.HasProperty("_Color"))
+					{
+						continue;
+					}
+					projector.material = new Material(projector.material);
+					baseColors[id] = projector.material.color;
+				}
+				projector.material.color = on ? Color.Lerp(baseColors[id], dimRed with { a = baseColors[id].a }, 0.7f) : baseColors[id];
+			}
+			foreach (Renderer renderer in ghost.GetComponentsInChildren<Renderer>(true))
+			{
+				int id = renderer.GetInstanceID();
+				if (!baseColors.ContainsKey(id))
+				{
+					if (!on || renderer.sharedMaterial == null || !renderer.sharedMaterial.HasProperty("_Color"))
+					{
+						continue;
+					}
+					baseColors[id] = renderer.material.color;
+				}
+				renderer.material.color = on ? Color.Lerp(baseColors[id], dimRed with { a = baseColors[id].a }, 0.7f) : baseColors[id];
 			}
 		}
 
@@ -680,11 +785,63 @@ internal static class TerrainZones
 	private static readonly (int, int)[] around8 = { (-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1) };
 	private static readonly (int, int)[] around4 = { (0, -1), (-1, 0), (1, 0), (0, 1) };
 
-	// A point higher than all eight neighbours by more than bumpHeight drops to their average.
+	// Whether any terrain point in the brush is at the ±8 m limit vanilla clamps level deltas to.
+	public static bool AtLimit(Vector3 center, float radius, bool up, bool down)
+	{
+		heightmaps.Clear();
+		Heightmap.FindHeightmap(center, radius + 1f, heightmaps);
+		foreach (Heightmap hmap in heightmaps)
+		{
+			TerrainComp comp = hmap.GetAndCreateTerrainCompiler();
+			if (comp == null || !comp.m_initialized || comp.m_levelDelta == null)
+			{
+				continue;
+			}
+			Vector3 origin = hmap.transform.position;
+			int half = hmap.m_width / 2;
+			float r = radius * 0.9f;
+			for (int y = 0; y <= hmap.m_width; y++)
+			{
+				float dz = origin.z + (y - half) * hmap.m_scale - center.z;
+				if (Mathf.Abs(dz) > r)
+				{
+					continue;
+				}
+				for (int x = 0; x <= hmap.m_width; x++)
+				{
+					float dx = origin.x + (x - half) * hmap.m_scale - center.x;
+					if (dx * dx + dz * dz > r * r)
+					{
+						continue;
+					}
+					float delta = comp.m_levelDelta[y * (comp.m_width + 1) + x];
+					if ((up && delta >= 7.95f) || (down && delta <= -7.95f))
+					{
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	// 5x5 ring around a point, for lumps up to three points wide.
+	private static readonly (int, int)[] ring16 =
+	{
+		(-2, -2), (-1, -2), (0, -2), (1, -2), (2, -2), (-2, 2), (-1, 2), (0, 2), (1, 2), (2, 2),
+		(-2, -1), (-2, 0), (-2, 1), (2, -1), (2, 0), (2, 1),
+	};
+
+	// A point that sticks up more than bumpHeight above the plane through the points around it drops
+	// onto that plane: first single-point spikes (the 8 neighbours), then lumps up to three points
+	// wide (the ring two points out). Measuring against a plane, not the highest neighbour, also
+	// catches lumps on a sloped road. The rings are symmetric, so the plane is just the mean height
+	// plus the slope along x and z.
 	private static void FlattenBumps(Dictionary<(int, int), Point> grid, float bumpHeight)
 	{
-		for (int pass = 0; pass < 2; pass++)
+		for (int pass = 0; pass < 4; pass++)
 		{
+			(int, int)[] around = pass % 2 == 0 ? around8 : ring16;
 			foreach (KeyValuePair<(int, int), Point> p in grid)
 			{
 				if (!p.Value.inside)
@@ -692,20 +849,21 @@ internal static class TerrainZones
 					continue;
 				}
 
-				float max = float.MinValue;
 				float sum = 0f;
 				int count = 0;
-				foreach ((int dx, int dz) in around8)
+				foreach ((int dx, int dz) in around)
 				{
-					if (grid.TryGetValue((p.Key.Item1 + dx, p.Key.Item2 + dz), out Point n))
+					if (!grid.TryGetValue((p.Key.Item1 + dx, p.Key.Item2 + dz), out Point n))
 					{
-						max = Mathf.Max(max, n.height);
-						sum += n.height;
-						count++;
+						break;
 					}
+					sum += n.height;
+					count++;
 				}
 
-				if (count == 8 && p.Value.height - max > bumpHeight)
+				// The plane's height at the centre of a symmetric ring is the mean. The wider ring needs twice
+				// the height, so gentle hill crests aren't shaved.
+				if (count == around.Length && p.Value.height - sum / count > (pass % 2 == 0 ? bumpHeight : bumpHeight * 2f))
 				{
 					p.Value.height = sum / count;
 				}

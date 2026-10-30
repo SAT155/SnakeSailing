@@ -20,12 +20,15 @@ for the SnakeSquad server.
 - **Landscaping** (new skill, vanilla hoe): every hoe strike trains it. With skill each strike
   costs less stamina (up to 60% less at 100) and the brush can get bigger (up to 2.5x the vanilla
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
-  what your skill allows. Level ground, path and paved road strikes also knock down lone bumps in
+  what your skill allows. Level ground, path and paved road strikes also knock down small lumps (up to three
+  points wide, also on sloped roads) in
   the brush. Hold Shift while striking to shape the brush into an even ramp a cart can take
   (25 degrees). If the ground is gentle it follows the ground's slope; if it's too steep the ramp
   runs across the hill, in the direction closest to where you look, like a road winding up a
   hillside. The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
-  tool's description in the build menu lists these controls. Older behaviour: *Ramp Mode* Relax, *Ramp Only With Shift* Off and *Shift Ramp Style*
+  tool's description in the build menu lists these controls. When a strike can't change something (the
+  game's 8 m limit on digging or raising, or a rock that isn't terrain) the brush flashes a dim red
+  and a message says why. Older behaviour: *Ramp Mode* Relax, *Ramp Only With Shift* Off and *Shift Ramp Style*
   Spread give the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
   between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
