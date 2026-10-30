@@ -22,7 +22,9 @@ for the SnakeSquad server.
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down lone bumps in
   the brush. Hold Shift while striking to also even out steps too steep for a cart (25 degrees)
-  into a ramp, only inside the brush (path, paved road and level ground). Shift doesn't sprint while the hoe is out, so stamina recovers
+  into a ramp, only inside the brush (path, paved road and level ground). By default the ramp is
+  built up (filled) against a cliff or step rather than cut into it: strike at the foot with the
+  brush touching the top, then work outward. *Shift Ramp Style* switches to cutting or both. Shift doesn't sprint while the hoe is out, so stamina recovers
   between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
   ground), with no stone or workbench. One strike moves up to 2 m³ at the unlock level and 20 m³ at

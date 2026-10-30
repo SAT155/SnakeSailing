@@ -20,6 +20,13 @@ namespace SnakeSkills;
 // hash, so a bigger brush would be lost: the strike claims every zone it touches first (any
 // client may), the same fix SnakeSmarterHoe uses. With the zones owned, the vanilla operation
 // runs here at once, and the bump/slope pass right after it works on the result.
+internal enum RampStyle
+{
+	Fill,
+	Cut,
+	Spread,
+}
+
 internal static class Landscaping
 {
 	private const string Section = "7 - Landscaping";
@@ -36,6 +43,7 @@ internal static class Landscaping
 	private static ConfigEntry<Toggle> easePaths = null!;
 	private static ConfigEntry<Toggle> easeLevel = null!;
 	private static ConfigEntry<float> maxSlope = null!;
+	private static ConfigEntry<RampStyle> rampStyle = null!;
 	private static ConfigEntry<Toggle> sizeWithWheel = null!;
 
 	private static Skill landscaping = null!;
@@ -66,6 +74,7 @@ internal static class Landscaping
 		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
 		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
+		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Fill, "How a Shift strike turns too-steep ground into a ramp. Fill: only adds ground, so the ramp is built up against a cliff or step (strike at the foot with the brush touching the top, then work outward). Cut: only removes ground, carving the ramp into the high side. Spread: both, meeting in the middle. Terrain can be raised at most 8 m above how the world generated it.");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
 		if (smarterHoeLoaded)
@@ -230,7 +239,7 @@ internal static class Landscaping
 			bool ease = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && (__state.path ? easePaths.Value == Toggle.On : easeLevel.Value == Toggle.On);
 			if (bumps || ease)
 			{
-				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, ease ? maxSlope.Value : -1f, ease && __state.level);
+				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, ease ? maxSlope.Value : -1f, ease && __state.level, rampStyle.Value);
 			}
 		}
 	}
@@ -329,7 +338,7 @@ internal static class TerrainZones
 		public readonly List<(Heightmap hmap, TerrainComp comp, int x, int y)> owners = new();
 	}
 
-	public static void Tidy(Vector3 center, float radius, float bumpHeight, float maxSlopeDegrees, bool levelEdgesOnly)
+	public static void Tidy(Vector3 center, float radius, float bumpHeight, float maxSlopeDegrees, bool levelEdgesOnly, RampStyle style)
 	{
 		heightmaps.Clear();
 		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
@@ -393,7 +402,7 @@ internal static class TerrainZones
 		}
 		if (maxSlopeDegrees > 0f)
 		{
-			EaseSlopes(grid, scale * Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad), levelEdgesOnly);
+			EaseSlopes(grid, scale * Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad), levelEdgesOnly, style);
 		}
 
 		HashSet<Heightmap> changed = new();
@@ -461,11 +470,13 @@ internal static class TerrainZones
 	// Spreads any step steeper than maxStep (height per grid point) over the points inside the brush,
 	// so a steep bit becomes an even ramp. Points outside the brush don't move, so the ramp meets the
 	// ground around it. levelEdgesOnly: only the rim next to the outside is eased (level ground keeps
-	// its flat middle; the easing then works inward from the edge).
-	private static void EaseSlopes(Dictionary<(int, int), Point> grid, float maxStep, bool levelEdgesOnly)
+	// its flat middle; the easing then works inward from the edge). Fill only ever raises a point
+	// (to the higher neighbour minus maxStep), so a cliff in the brush gets a ramp built up against
+	// it; Cut only lowers; Spread moves both sides halfway.
+	private static void EaseSlopes(Dictionary<(int, int), Point> grid, float maxStep, bool levelEdgesOnly, RampStyle style)
 	{
 		List<KeyValuePair<(int, int), Point>> points = new(grid);
-		for (int iteration = 0; iteration < 40; iteration++)
+		for (int iteration = 0; iteration < 80; iteration++)
 		{
 			bool moved = false;
 			foreach (KeyValuePair<(int, int), Point> p in points)
@@ -489,7 +500,24 @@ internal static class TerrainZones
 					}
 
 					float sign = Mathf.Sign(step);
-					if (n.inside)
+					if (style != RampStyle.Spread)
+					{
+						// Fill raises the lower of the two, Cut lowers the higher, and only points inside move.
+						Point low = step < 0 ? p.Value : n, high = step < 0 ? n : p.Value;
+						if (style == RampStyle.Fill && low.inside)
+						{
+							low.height = high.height - maxStep;
+						}
+						else if (style == RampStyle.Cut && high.inside)
+						{
+							high.height = low.height + maxStep;
+						}
+						else
+						{
+							continue;
+						}
+					}
+					else if (n.inside)
 					{
 						p.Value.height -= sign * excess * 0.5f;
 						n.height += sign * excess * 0.5f;
