@@ -21,9 +21,14 @@ for the SnakeSquad server.
   costs less stamina (up to 60% less at 100) and the brush can get bigger (up to 2.5x the vanilla
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down lone bumps in
-  the brush, and path/paved road strikes even out steps too steep for a cart (25 degrees) into a
-  ramp, only inside the brush. Shift doesn't sprint while the hoe is out, so stamina recovers
-  between strikes. Not compatible with SmarterHoe: if it is installed the hoe is left alone.
+  the brush. Hold Shift while striking to also even out steps too steep for a cart (25 degrees)
+  into a ramp, only inside the brush (path, paved road and level ground). Shift doesn't sprint while the hoe is out, so stamina recovers
+  between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
+  ground in the brush back toward how the world generated it (fills holes, takes down raised
+  ground), with no stone or workbench. One strike moves up to 2 m³ at the unlock level and 20 m³ at
+  100, less toward the brush edge so a partial restore stays smooth. Once the ground is fully back,
+  path and paved paint goes too. Not compatible with SmarterHoe: if it is installed the hoe is left
+  alone.
 - **Pulsating Earrings** (vanilla trinket): while worn they give a permanent **+25 max eitr** on
   top of your food (works with no eitr food too), plus an optional always-on eitr regen bonus
   (off by default). Their adrenaline effect is unchanged, so ViableTrinkets still works. Amounts

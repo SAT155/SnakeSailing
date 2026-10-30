@@ -44,6 +44,11 @@ git history).
   steps steeper than the cart slope over the points inside the brush, written into the
   `TerrainComp` level deltas like vanilla `LevelTerrain`. `UpdatePlacementGhost` resizes the
   ghost; `CheckRun` blocks sprint in hoe build mode. Off while SmarterHoe is loaded.
+  Slope easing runs only while Shift is held (1.4). **Restore terrain (`RestoreTerrain.cs`, 1.4)**:
+  a copy of the level ground piece without its `TerrainOp`/`ZNetView`, added to the hoe's table and
+  shown from Landscaping 25 (`PieceTable.UpdateAvailable` known recipes). `Player.PlacePiece` is
+  intercepted for it (stamina, durability, animation done by hand) and it moves `TerrainComp`
+  level deltas toward 0 within a per-strike volume and depth limit with soft falloff.
 - `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
 - Upstream's hard block on Valheim Plus is a warning instead.
 

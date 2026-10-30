@@ -99,6 +99,7 @@
         <Compile Include="Mining.cs"/>
         <Compile Include="Fishing.cs"/>
         <Compile Include="Landscaping.cs"/>
+        <Compile Include="RestoreTerrain.cs"/>
         <Compile Include="Trinkets.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
@@ -107,6 +108,7 @@
         <EmbeddedResource Include="icons/ranching.png"/>
         <EmbeddedResource Include="icons/mining.png"/>
         <EmbeddedResource Include="icons/landscaping.png"/>
+        <EmbeddedResource Include="icons/restore.png"/>
         <None Include="ILRepack.targets"/>
         <None Include="Libs/ServerSync.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

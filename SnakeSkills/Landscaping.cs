@@ -12,8 +12,8 @@ namespace SnakeSkills;
 
 // Landscaping: a skill for the vanilla hoe. Each hoe strike trains it; with skill the strike costs
 // less stamina and the brush can be made bigger (Left Alt + mouse wheel). Every level-ground,
-// path or paved-road strike also knocks down lone terrain bumps in its area and can ease slopes
-// too steep for a cart. Shift doesn't sprint while the hoe's build mode is open.
+// path or paved-road strike also knocks down lone terrain bumps in its area, and with Shift held
+// eases slopes too steep for a cart. Shift doesn't sprint while the hoe's build mode is open.
 //
 // Terrain edits sync through each zone's TerrainComp ZDO, and only its owner's Save() reaches
 // other players. A non-owner's vanilla strike is sent to the owner as just the piece's prefab
@@ -63,8 +63,8 @@ internal static class Landscaping
 		noSprint = mod.config(Section, "No Sprint With Hoe", Toggle.On, "If on, Shift doesn't sprint while the hoe's build mode is open, so stamina keeps recovering between strikes.");
 		flattenBumps = mod.config(Section, "Flatten Bumps", Toggle.On, "If on, level ground, path and paved road strikes lower any single terrain point in the brush that sticks up above all of its neighbours (the little bumps you'd otherwise hunt with a pickaxe).");
 		bumpHeight = mod.config(Section, "Bump Height", 0.1f, new ConfigDescription("How far (m) a point has to stick up above its highest neighbour to count as a bump.", new AcceptableValueRange<float>(0.02f, 1f)));
-		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take.");
-		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.Off, "If on, level ground strikes also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Off keeps level ground flat to the edge.");
+		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
+		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
@@ -74,9 +74,9 @@ internal static class Landscaping
 		}
 	}
 
-	private static bool Active => enabled.Value == Toggle.On && !smarterHoeLoaded;
+	internal static bool Active => enabled.Value == Toggle.On && !smarterHoeLoaded;
 
-	private static bool HoldingHoe(Player player)
+	internal static bool HoldingHoe(Player player)
 	{
 		ItemDrop.ItemData? item = player.GetRightItem();
 		return item != null && ((item.m_dropPrefab != null && item.m_dropPrefab.name == "Hoe") || item.m_shared.m_name == "$item_hoe");
@@ -86,7 +86,7 @@ internal static class Landscaping
 
 	private static float MaxScale(Player player) => Mathf.Lerp(1f, maxBrushScale.Value, player.GetSkillFactor("Landscaping"));
 
-	private static float BrushScale(Player player) => Mathf.Lerp(1f, MaxScale(player), brushChoice);
+	internal static float BrushScale(Player player) => Mathf.Lerp(1f, MaxScale(player), brushChoice);
 
 	internal static void Update()
 	{
@@ -226,7 +226,8 @@ internal static class Landscaping
 			}
 
 			bool bumps = flattenBumps.Value == Toggle.On;
-			bool ease = __state.path ? easePaths.Value == Toggle.On : easeLevel.Value == Toggle.On;
+			// Ramping only on request: Shift (which no longer sprints with the hoe out).
+			bool ease = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && (__state.path ? easePaths.Value == Toggle.On : easeLevel.Value == Toggle.On);
 			if (bumps || ease)
 			{
 				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, ease ? maxSlope.Value : -1f, ease && __state.level);
@@ -242,7 +243,7 @@ internal static class Landscaping
 
 		private static void Postfix(Player __instance)
 		{
-			if (!Active || __instance != Player.m_localPlayer || __instance.m_placementGhost is not { } ghost || !HoldingHoe(__instance) || ghost.GetComponentInChildren<TerrainOp>(true) == null)
+			if (!Active || __instance != Player.m_localPlayer || __instance.m_placementGhost is not { } ghost || !HoldingHoe(__instance) || (ghost.GetComponentInChildren<TerrainOp>(true) == null && !RestoreTerrain.IsRestorePiece(ghost)))
 			{
 				return;
 			}
@@ -298,7 +299,7 @@ internal static class Landscaping
 // Terrain helpers for Landscaping: zone ownership, and the bump/slope pass on the result of a strike.
 internal static class TerrainZones
 {
-	private static readonly List<Heightmap> heightmaps = new();
+	internal static readonly List<Heightmap> heightmaps = new();
 
 	public static void Claim(Vector3 center, float radius)
 	{
