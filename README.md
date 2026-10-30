@@ -44,7 +44,11 @@ git history).
   steps steeper than the cart slope over the points inside the brush, written into the
   `TerrainComp` level deltas like vanilla `LevelTerrain`. `UpdatePlacementGhost` resizes the
   ghost; `CheckRun` blocks sprint in hoe build mode. Off while SmarterHoe is loaded.
-  Slope easing runs only while Shift is held (1.4). **Restore terrain (`RestoreTerrain.cs`, 1.4)**:
+  Slope easing runs only while Shift is held (1.4). 1.5: Ramp Mode Slope fits a plane to the
+  ground before the strike (least squares) and moves the brush onto one even ramp, along the
+  ground's slope or, if steeper than the cart slope, across the hill toward the camera's facing;
+  Relax is the old neighbour relaxation. Alt + wheel keeps `GameCamera.m_distance` and
+  `Player.m_placeRotation`; the picked brush size is an absolute, unsynced config value. **Restore terrain (`RestoreTerrain.cs`, 1.4)**:
   a copy of the level ground piece without its `TerrainOp`/`ZNetView`, added to the hoe's table and
   shown from Landscaping 25 (`PieceTable.UpdateAvailable` known recipes). `Player.PlacePiece` is
   intercepted for it (stamina, durability, animation done by hand) and it moves `TerrainComp`

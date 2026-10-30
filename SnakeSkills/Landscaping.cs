@@ -20,6 +20,12 @@ namespace SnakeSkills;
 // hash, so a bigger brush would be lost: the strike claims every zone it touches first (any
 // client may), the same fix SnakeSmarterHoe uses. With the zones owned, the vanilla operation
 // runs here at once, and the bump/slope pass right after it works on the result.
+internal enum RampMode
+{
+	Slope,
+	Relax,
+}
+
 internal enum RampStyle
 {
 	Fill,
@@ -45,12 +51,12 @@ internal static class Landscaping
 	private static ConfigEntry<float> maxSlope = null!;
 	private static ConfigEntry<RampStyle> rampStyle = null!;
 	private static ConfigEntry<Toggle> sizeWithWheel = null!;
+	private static ConfigEntry<float> brushSize = null!;
+	private static ConfigEntry<Toggle> rampNeedsShift = null!;
+	private static ConfigEntry<RampMode> rampMode = null!;
 
 	private static Skill landscaping = null!;
 	private static bool smarterHoeLoaded;
-
-	// Brush size the player picked, as a fraction of the way from vanilla (0) to the skill's max (1).
-	private static float brushChoice = 1f;
 
 	public static void Init(SnakeSkillsPlugin mod)
 	{
@@ -62,6 +68,7 @@ internal static class Landscaping
 		staminaReduction = mod.config(Section, "Stamina Reduction", 0.6f, new ConfigDescription("Share of a hoe strike's stamina saved at Landscaping 100 (0.6 = 60% less). Scales with the skill.", new AcceptableValueRange<float>(0f, 0.95f)));
 		maxBrushScale = mod.config(Section, "Max Brush Scale", 2.5f, new ConfigDescription("How much bigger than vanilla the hoe brush can get at Landscaping 100 (2.5 = two and a half times the radius). At level 0 it is vanilla size; in between it grows with the skill.", new AcceptableValueRange<float>(1f, 5f)));
 		sizeWithWheel = mod.config(Section, "Brush Size With Alt + Wheel", Toggle.On, "If on, hold Left Alt and turn the mouse wheel while the hoe's build mode is open to make the brush smaller or bigger, up to what your skill allows. It starts at the biggest.", synchronizedSetting: false);
+		brushSize = mod.config(Section, "Brush Size", 0f, new ConfigDescription("The brush size you picked with Left Alt + wheel (1 = vanilla). It stays the same as Landscaping rises; only the upper limit grows. 0 = always the biggest your skill allows.", new AcceptableValueRange<float>(0f, 5f)), synchronizedSetting: false);
 		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the landscaping skill (one point per hoe strike).", new AcceptableValueRange<float>(0.01f, 5f)));
 		experienceGainedFactor.SettingChanged += (_, _) => landscaping.SkillGainFactor = experienceGainedFactor.Value;
 		landscaping.SkillGainFactor = experienceGainedFactor.Value;
@@ -74,7 +81,9 @@ internal static class Landscaping
 		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
 		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
-		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Fill, "How a Shift strike turns too-steep ground into a ramp. Fill: only adds ground, so the ramp is built up against a cliff or step (strike at the foot with the brush touching the top, then work outward). Cut: only removes ground, carving the ramp into the high side. Spread: both, meeting in the middle. Terrain can be raised at most 8 m above how the world generated it.");
+		rampNeedsShift = mod.config(Section, "Ramp Only With Shift", Toggle.On, "If on, slope ramping only happens on strikes made while holding Shift. Off ramps on every level ground/path/paved strike (as in SnakeSkills 1.2 and 1.3).");
+		rampMode = mod.config(Section, "Ramp Mode", RampMode.Slope, "Slope: the strike shapes the brush into one even ramp. If the ground is gentle enough it follows the ground's own slope; if it is too steep, the ramp runs across the hill at Max Cart Slope (like a road winding up a hillside) in the direction closest to where you are looking, instead of straight up the steepest part. Relax: the older behaviour (1.2-1.4), which only evens out steps steeper than Max Cart Slope between neighbouring points.");
+		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a ramp may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
 		if (smarterHoeLoaded)
@@ -95,7 +104,38 @@ internal static class Landscaping
 
 	private static float MaxScale(Player player) => Mathf.Lerp(1f, maxBrushScale.Value, player.GetSkillFactor("Landscaping"));
 
-	internal static float BrushScale(Player player) => Mathf.Lerp(1f, MaxScale(player), brushChoice);
+	internal static float BrushScale(Player player) => brushSize.Value <= 0f ? MaxScale(player) : Mathf.Clamp(brushSize.Value, 1f, MaxScale(player));
+
+	// Left Alt + wheel sizes the brush; the same scroll must not also zoom the camera or turn the piece.
+	private static bool AdjustingBrush => Active && sizeWithWheel.Value == Toggle.On && Player.m_localPlayer is { } player && HoeBuildMode(player) && Input.GetKey(KeyCode.LeftAlt);
+
+	[HarmonyPatch(typeof(GameCamera), nameof(GameCamera.UpdateCamera))]
+	private static class NoZoomWhileSizing
+	{
+		private static void Prefix(GameCamera __instance, out float __state) => __state = __instance.m_distance;
+
+		private static void Postfix(GameCamera __instance, float __state)
+		{
+			if (AdjustingBrush)
+			{
+				__instance.m_distance = __state;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Player), nameof(Player.UpdatePlacement))]
+	private static class NoRotateWhileSizing
+	{
+		private static void Prefix(Player __instance, out int __state) => __state = __instance.m_placeRotation;
+
+		private static void Postfix(Player __instance, int __state)
+		{
+			if (__instance == Player.m_localPlayer && AdjustingBrush)
+			{
+				__instance.m_placeRotation = __state;
+			}
+		}
+	}
 
 	internal static void Update()
 	{
@@ -119,7 +159,7 @@ internal static class Landscaping
 
 		// Steps of a tenth of vanilla's radius.
 		float scale = Mathf.Clamp(BrushScale(player) + Mathf.Sign(wheel) * 0.1f, 1f, max);
-		brushChoice = Mathf.InverseLerp(1f, max, scale);
+		brushSize.Value = Mathf.Round(scale * 10f) / 10f;
 		player.Message(MessageHud.MessageType.TopLeft, $"Hoe brush: {scale:0.0}x (max {max:0.0}x)");
 	}
 
@@ -157,6 +197,7 @@ internal static class Landscaping
 		public float radius;
 		public bool level;
 		public bool path;
+		public TerrainZones.Ramp? ramp;
 	}
 
 	[HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.Awake))]
@@ -225,6 +266,19 @@ internal static class Landscaping
 				level = s.m_level && !s.m_raise,
 				path = !s.m_level && !s.m_raise && (s.m_smooth || s.m_paintCleared),
 			};
+
+			// The ramp's slope is read from the ground before the strike changes it.
+			if (WantsRamp(__state) && rampMode.Value == RampMode.Slope)
+			{
+				Vector3 facing = GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward;
+				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value);
+			}
+		}
+
+		private static bool WantsRamp(Strike strike)
+		{
+			bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+			return (shift || rampNeedsShift.Value == Toggle.Off) && (strike.path ? easePaths.Value == Toggle.On : strike.level && easeLevel.Value == Toggle.On);
 		}
 
 		private static void Postfix(Strike? __state)
@@ -235,11 +289,12 @@ internal static class Landscaping
 			}
 
 			bool bumps = flattenBumps.Value == Toggle.On;
-			// Ramping only on request: Shift (which no longer sprints with the hoe out).
-			bool ease = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && (__state.path ? easePaths.Value == Toggle.On : easeLevel.Value == Toggle.On);
-			if (bumps || ease)
+			// Ramping only on request by default: Shift (which no longer sprints with the hoe out).
+			bool ease = WantsRamp(__state);
+			bool relax = ease && rampMode.Value == RampMode.Relax;
+			if (bumps || relax || __state.ramp != null)
 			{
-				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, ease ? maxSlope.Value : -1f, ease && __state.level, rampStyle.Value);
+				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, relax ? maxSlope.Value : -1f, relax && __state.level, rampStyle.Value, __state.ramp);
 			}
 		}
 	}
@@ -338,7 +393,7 @@ internal static class TerrainZones
 		public readonly List<(Heightmap hmap, TerrainComp comp, int x, int y)> owners = new();
 	}
 
-	public static void Tidy(Vector3 center, float radius, float bumpHeight, float maxSlopeDegrees, bool levelEdgesOnly, RampStyle style)
+	public static void Tidy(Vector3 center, float radius, float bumpHeight, float maxSlopeDegrees, bool levelEdgesOnly, RampStyle style, Ramp? ramp)
 	{
 		heightmaps.Clear();
 		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
@@ -400,6 +455,10 @@ internal static class TerrainZones
 		{
 			FlattenBumps(grid, bumpHeight);
 		}
+		if (ramp != null)
+		{
+			ApplyRamp(grid, scale, center, radius, ramp);
+		}
 		if (maxSlopeDegrees > 0f)
 		{
 			EaseSlopes(grid, scale * Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad), levelEdgesOnly, style);
@@ -428,6 +487,129 @@ internal static class TerrainZones
 		{
 			hmap.GetAndCreateTerrainCompiler().Save(false);
 			hmap.Poke(0, false);
+		}
+	}
+
+	// A planned ramp: an even slope through the brush centre, rising `slope` metres per metre along
+	// `dir` and level across it.
+	internal class Ramp
+	{
+		public float baseHeight;
+		public Vector2 dir;
+		public float slope;
+		public RampStyle style;
+	}
+
+	// Fits a plane to the ground in the brush (least squares). If it is no steeper than the cart
+	// slope, the ramp follows it. If it is steeper, the ramp runs across the hill: of the two
+	// directions where the ground rises at exactly the cart slope, the one closer to where the
+	// player looks (either way along it). The ground rises along d at |G|·cos(angle between d and G),
+	// so that angle is acos(maxSlope / |G|).
+	public static Ramp? PlanRamp(Vector3 center, float radius, float maxSlopeDegrees, Vector3 facing, RampStyle style)
+	{
+		heightmaps.Clear();
+		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
+		double n = 0, sx = 0, sz = 0, sh = 0, sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
+		foreach (Heightmap hmap in heightmaps)
+		{
+			Vector3 origin = hmap.transform.position;
+			int half = hmap.m_width / 2;
+			for (int y = 0; y <= hmap.m_width; y++)
+			{
+				float dz = origin.z + (y - half) * hmap.m_scale - center.z;
+				if (Mathf.Abs(dz) > radius)
+				{
+					continue;
+				}
+				for (int x = 0; x <= hmap.m_width; x++)
+				{
+					float dx = origin.x + (x - half) * hmap.m_scale - center.x;
+					if (dx * dx + dz * dz > radius * radius)
+					{
+						continue;
+					}
+					float h = origin.y + hmap.GetHeight(x, y);
+					n++;
+					sx += dx;
+					sz += dz;
+					sh += h;
+					sxx += dx * dx;
+					szz += dz * dz;
+					sxz += dx * dz;
+					sxh += dx * h;
+					szh += dz * h;
+				}
+			}
+		}
+		if (n < 6)
+		{
+			return null;
+		}
+
+		// Centred sums, then the 2x2 normal equations for the gradient.
+		double mx = sx / n, mz = sz / n, mh = sh / n;
+		double cxx = sxx / n - mx * mx, czz = szz / n - mz * mz, cxz = sxz / n - mx * mz;
+		double cxh = sxh / n - mx * mh, czh = szh / n - mz * mh;
+		double det = cxx * czz - cxz * cxz;
+		if (System.Math.Abs(det) < 1e-9)
+		{
+			return null;
+		}
+		Vector2 g = new((float)((cxh * czz - czh * cxz) / det), (float)((czh * cxx - cxh * cxz) / det));
+		float baseHeight = (float)(mh - g.x * mx - g.y * mz);
+
+		float steep = g.magnitude;
+		float max = Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad);
+		Ramp ramp = new() { baseHeight = baseHeight, style = style };
+		if (steep < 0.001f)
+		{
+			ramp.dir = Vector2.right;
+			ramp.slope = 0f;
+		}
+		else if (steep <= max)
+		{
+			ramp.dir = g / steep;
+			ramp.slope = steep;
+		}
+		else
+		{
+			float angle = Mathf.Acos(max / steep) * Mathf.Rad2Deg;
+			Vector2 up = g / steep;
+			Vector2 a = Rotate(up, angle), b = Rotate(up, -angle);
+			Vector2 look = new Vector2(facing.x, facing.z).normalized;
+			ramp.dir = Mathf.Abs(Vector2.Dot(a, look)) >= Mathf.Abs(Vector2.Dot(b, look)) ? a : b;
+			ramp.slope = max;
+		}
+		return ramp;
+	}
+
+	private static Vector2 Rotate(Vector2 v, float degrees)
+	{
+		float r = degrees * Mathf.Deg2Rad, c = Mathf.Cos(r), s = Mathf.Sin(r);
+		return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
+	}
+
+	// Moves the points inside the brush onto the ramp, fully in the inner 60% of the radius and
+	// fading out to the edge so the ramp blends into the ground around it.
+	private static void ApplyRamp(Dictionary<(int, int), Point> grid, float scale, Vector3 center, float radius, Ramp ramp)
+	{
+		foreach (KeyValuePair<(int, int), Point> p in grid)
+		{
+			if (!p.Value.inside)
+			{
+				continue;
+			}
+			float dx = p.Key.Item1 * scale - center.x, dz = p.Key.Item2 * scale - center.z;
+			float dist = Mathf.Sqrt(dx * dx + dz * dz);
+			float weight = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius * 0.6f, radius, dist));
+			float target = ramp.baseHeight + ramp.slope * (ramp.dir.x * dx + ramp.dir.y * dz);
+			float moved = Mathf.Lerp(p.Value.height, target, weight);
+			p.Value.height = ramp.style switch
+			{
+				RampStyle.Fill => Mathf.Max(p.Value.height, moved),
+				RampStyle.Cut => Mathf.Min(p.Value.height, moved),
+				_ => moved,
+			};
 		}
 	}
 
