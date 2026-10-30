@@ -40,6 +40,7 @@ internal static class Landscaping
 
 	private static ConfigEntry<Toggle> enabled = null!;
 	private static ConfigEntry<float> staminaReduction = null!;
+	private static ConfigEntry<float> durabilityReduction = null!;
 	private static ConfigEntry<float> maxBrushScale = null!;
 	private static ConfigEntry<float> experienceGainedFactor = null!;
 	private static ConfigEntry<int> experienceLoss = null!;
@@ -66,6 +67,7 @@ internal static class Landscaping
 
 		enabled = mod.config(Section, "Hoe Changes", Toggle.On, "If on, the hoe uses the Landscaping skill (less stamina, bigger brush) and smooths bumps and steep spots. Off is the vanilla hoe; the skill still shows.");
 		staminaReduction = mod.config(Section, "Stamina Reduction", 0.6f, new ConfigDescription("Share of a hoe strike's stamina saved at Landscaping 100 (0.6 = 60% less). Scales with the skill.", new AcceptableValueRange<float>(0f, 0.95f)));
+		durabilityReduction = mod.config(Section, "Durability Reduction", 0.6f, new ConfigDescription("Share of the hoe durability a strike uses that is saved at Landscaping 100 (0.6 = 60% less). Scales with the skill.", new AcceptableValueRange<float>(0f, 1f)));
 		maxBrushScale = mod.config(Section, "Max Brush Scale", 2.5f, new ConfigDescription("How much bigger than vanilla the hoe brush can get at Landscaping 100 (2.5 = two and a half times the radius). At level 0 it is vanilla size; in between it grows with the skill.", new AcceptableValueRange<float>(1f, 5f)));
 		sizeWithWheel = mod.config(Section, "Brush Size With Alt + Wheel", Toggle.On, "If on, hold Left Alt and turn the mouse wheel while the hoe's build mode is open to make the brush smaller or bigger, up to what your skill allows. It starts at the biggest.", synchronizedSetting: false);
 		brushSize = mod.config(Section, "Brush Size", 0f, new ConfigDescription("The brush size you picked with Left Alt + wheel (1 = vanilla). It stays the same as Landscaping rises; only the upper limit grows. 0 = always the biggest your skill allows.", new AcceptableValueRange<float>(0f, 5f)), synchronizedSetting: false);
@@ -250,6 +252,27 @@ internal static class Landscaping
 			if (Active && HoldingHoe(__instance))
 			{
 				__result *= 1f - staminaReduction.Value * __instance.GetSkillFactor("Landscaping");
+			}
+		}
+	}
+
+	// Strikes (vanilla's and Restore terrain's) wear the hoe somewhere inside UpdatePlacement; give
+	// back the skill's share of whatever it lost there.
+	[HarmonyPatch(typeof(Player), nameof(Player.UpdatePlacement))]
+	private static class LessWear
+	{
+		private static void Prefix(Player __instance, out (ItemDrop.ItemData? hoe, float durability) __state)
+		{
+			ItemDrop.ItemData? hoe = Active && HoldingHoe(__instance) ? __instance.GetRightItem() : null;
+			__state = (hoe, hoe?.m_durability ?? 0f);
+		}
+
+		private static void Postfix(Player __instance, (ItemDrop.ItemData? hoe, float durability) __state)
+		{
+			if (__state.hoe is { } hoe && hoe.m_durability < __state.durability)
+			{
+				float saved = (__state.durability - hoe.m_durability) * durabilityReduction.Value * __instance.GetSkillFactor("Landscaping");
+				hoe.m_durability = Mathf.Min(hoe.GetMaxDurability(), hoe.m_durability + saved);
 			}
 		}
 	}
@@ -842,6 +865,7 @@ internal static class TerrainZones
 		for (int pass = 0; pass < 4; pass++)
 		{
 			(int, int)[] around = pass % 2 == 0 ? around8 : ring16;
+			float threshold = pass % 2 == 0 ? bumpHeight : bumpHeight * 2f;
 			foreach (KeyValuePair<(int, int), Point> p in grid)
 			{
 				if (!p.Value.inside)
@@ -849,7 +873,9 @@ internal static class TerrainZones
 					continue;
 				}
 
-				float sum = 0f;
+				// Fit a plane to the ring: on a symmetric ring its height at the centre is the mean and its
+				// slope along x (z) is sum(h*dx) / sum(dx*dx).
+				float sum = 0f, sumX = 0f, sumZ = 0f, sumXX = 0f, sumZZ = 0f;
 				int count = 0;
 				foreach ((int dx, int dz) in around)
 				{
@@ -858,14 +884,35 @@ internal static class TerrainZones
 						break;
 					}
 					sum += n.height;
+					sumX += n.height * dx;
+					sumZ += n.height * dz;
+					sumXX += dx * dx;
+					sumZZ += dz * dz;
 					count++;
 				}
-
-				// The plane's height at the centre of a symmetric ring is the mean. The wider ring needs twice
-				// the height, so gentle hill crests aren't shaved.
-				if (count == around.Length && p.Value.height - sum / count > (pass % 2 == 0 ? bumpHeight : bumpHeight * 2f))
+				if (count != around.Length)
 				{
-					p.Value.height = sum / count;
+					continue;
+				}
+
+				float mean = sum / count;
+				float excess = p.Value.height - mean;
+				if (excess <= threshold)
+				{
+					continue;
+				}
+
+				// Only a lump on otherwise even ground is a bump. At an edge (the lip of a cut, the rim
+				// where a level strike meets lower ground) the ring itself is far from a plane, and
+				// knocking the point down would chew a notch into the edge.
+				float gx = sumX / sumXX, gz = sumZ / sumZZ, worst = 0f;
+				foreach ((int dx, int dz) in around)
+				{
+					worst = Mathf.Max(worst, Mathf.Abs(grid[(p.Key.Item1 + dx, p.Key.Item2 + dz)].height - (mean + gx * dx + gz * dz)));
+				}
+				if (worst <= excess * 0.25f)
+				{
+					p.Value.height = mean;
 				}
 			}
 		}

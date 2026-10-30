@@ -37,10 +37,10 @@ git history).
   1.3: a `Recipe.GetAmount` postfix gives more Raw fish and Fish 'n' Bread with Fishing skill, and
   adds vanilla's per-star bonus to Fish 'n' Bread (it only applies to one-ingredient recipes).
 - **Landscaping (`Landscaping.cs`)**, new skill for the vanilla hoe. `GetBuildStamina` postfix
-  cuts stamina by skill; a `TerrainOp.Awake` prefix scales the strike's radii by skill (Left Alt +
+  cuts stamina by skill, an `UpdatePlacement` prefix/postfix gives back the skill's share of hoe wear; a `TerrainOp.Awake` prefix scales the strike's radii by skill (Left Alt +
   wheel picks a size), claims ownership of every terrain zone it touches (a non-owner's strike is
   sent as just the prefab hash, so a bigger brush would be lost; same fix as SnakeSmarterHoe), and
-  raises the skill. The postfix regenerates the heightmaps, then lowers lone bumps and spreads
+  raises the skill. The postfix regenerates the heightmaps, then lowers lone bumps (only where the ring around them is close to a plane, so the edges of cuts and fills keep their shape) and spreads
   steps steeper than the cart slope over the points inside the brush, written into the
   `TerrainComp` level deltas like vanilla `LevelTerrain`. `UpdatePlacementGhost` resizes the
   ghost; `CheckRun` blocks sprint in hoe build mode. Off while SmarterHoe is loaded.

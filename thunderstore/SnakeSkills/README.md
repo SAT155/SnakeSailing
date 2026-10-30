@@ -18,7 +18,7 @@ for the SnakeSquad server.
   the Anglerfish's stars like fillets do (a 2-star Anglerfish makes 2, a 3-star 3, before the
   skill bonus). The craft uses the first Anglerfish in your inventory.
 - **Landscaping** (new skill, vanilla hoe): every hoe strike trains it. With skill each strike
-  costs less stamina (up to 60% less at 100) and the brush can get bigger (up to 2.5x the vanilla
+  costs less stamina and wears the hoe less (each up to 60% less at 100) and the brush can get bigger (up to 2.5x the vanilla
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down small lumps (up to three
   points wide, also on sloped roads) in
