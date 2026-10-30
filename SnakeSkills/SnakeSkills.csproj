@@ -113,6 +113,7 @@
         <Compile Include="Sailing.cs"/>
         <Compile Include="Ranching.cs"/>
         <Compile Include="Mining.cs"/>
+        <Compile Include="Fishing.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>

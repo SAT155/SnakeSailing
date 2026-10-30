@@ -28,6 +28,12 @@ git history).
   it; a skill that is present wins.
 - **Config import (`ConfigImport.cs`).** On the first start (no SnakeSkills .cfg yet), values are
   copied from the old mods' .cfg files by section and key.
+- **Fishing XP by fish (`Fishing.cs`)**, new: vanilla only raises Fishing while reeling
+  (`FishingFloat.FixedUpdate`, `RaiseSkill(Fishing)` once per second of pulling, twice as often
+  with a fish on), the same for every fish. A `FishingFloat.Catch` postfix adds catch XP per fish
+  prefab (config list, stars add a bonus), given in steps of 1 because one `Skills.RaiseSkill`
+  can only gain one level. While a fish is on the line, `Player.RaiseSkill(Fishing)` is scaled by
+  `1 + fishXp x Reeling XP Per Fish XP`.
 - `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
 - Upstream's hard block on Valheim Plus is a warning instead.
 

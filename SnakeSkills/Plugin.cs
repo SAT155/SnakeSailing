@@ -19,7 +19,7 @@ namespace SnakeSkills;
 public class SnakeSkillsPlugin : BaseUnityPlugin
 {
 	internal const string ModName = "SnakeSkills";
-	internal const string ModVersion = "1.0.0";
+	internal const string ModVersion = "1.1.0";
 	internal const string ModGUID = "com.snakesquad.snakeskills";
 	internal const string SailingGUID = "org.bepinex.plugins.sailing";
 	internal const string RanchingGUID = "org.bepinex.plugins.ranching";
@@ -77,13 +77,14 @@ public class SnakeSkillsPlugin : BaseUnityPlugin
 		Sailing.Init(this);
 		Ranching.Init(this);
 		Mining.Init(this);
+		Fishing.Init(this);
 
 		Harmony harmony = new(ModGUID);
 		harmony.PatchAll(Assembly.GetExecutingAssembly());
 
 		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
 		{
-			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods patch ship speed and controls, taming/breeding and mining, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
+			Logger.LogWarning("Valheim Plus (or a fork of it) is also loaded. Both mods patch ship speed and controls, taming/breeding, mining and fishing XP, so behavior may not be exactly what either mod intends on its own - test on your server before relying on it.");
 		}
 	}
 

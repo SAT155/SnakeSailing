@@ -9,6 +9,10 @@ for the SnakeSquad server.
   pregnancy timers, keep taming animals calm, and give offspring a chance at an extra star.
 - **Mining**: more pickaxe damage and ore. From level 50, a small chance the whole deposit breaks
   at once (Ctrl + T toggles it).
+- **Fishing XP by fish** (vanilla Fishing skill): every catch gives Fishing XP by the kind of
+  fish, from 10 for a Perch up to 150 for a Magmafish, more for starred fish. Reeling in a hard
+  fish also trains faster (up to 4x for a Magmafish). Vanilla gives nothing for the catch and the
+  same reeling XP for every fish. All amounts are in the *6 - Fishing* config section.
 
 ## Your skill levels are safe now
 
@@ -36,7 +40,7 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 ## Config sections
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
-4 Ranching · 5 Mining
+4 Ranching · 5 Mining · 6 Fishing
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
 ships, taming and mining).
