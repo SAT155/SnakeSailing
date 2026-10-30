@@ -47,6 +47,11 @@ internal static class Landscaping
 	private static ConfigEntry<Toggle> noSprint = null!;
 	private static ConfigEntry<Toggle> flattenBumps = null!;
 	private static ConfigEntry<float> bumpHeight = null!;
+	private static ConfigEntry<Toggle> skillLimits = null!;
+	private static ConfigEntry<float> bumpAtZero = null!;
+	private static ConfigEntry<float> bumpAtHundred = null!;
+	private static ConfigEntry<float> levelAtZero = null!;
+	private static ConfigEntry<float> levelAtHundred = null!;
 	private static ConfigEntry<Toggle> easePaths = null!;
 	private static ConfigEntry<Toggle> easeLevel = null!;
 	private static ConfigEntry<float> maxSlope = null!;
@@ -80,6 +85,11 @@ internal static class Landscaping
 		noSprint = mod.config(Section, "No Sprint With Hoe", Toggle.On, "If on, Shift doesn't sprint while the hoe's build mode is open, so stamina keeps recovering between strikes.");
 		flattenBumps = mod.config(Section, "Flatten Bumps", Toggle.On, "If on, level ground, path and paved road strikes lower small lumps in the brush (single points or up to three points wide) that stick up above the ground around them, also on sloped roads: the little bumps you'd otherwise hunt with a pickaxe.");
 		bumpHeight = mod.config(Section, "Bump Height", 0.1f, new ConfigDescription("How far (m) a point has to stick up above the ground around it to count as a bump (lumps up to three points wide need twice this).", new AcceptableValueRange<float>(0.02f, 1f)));
+		skillLimits = mod.config(Section, "Skill Limits", Toggle.On, "If on, how big a bump the hoe can knock down and how far one level ground strike can dig or fill grow with Landscaping. Past the limit the brush flashes dim red and says so; another strike gets further.");
+		bumpAtZero = mod.config(Section, "Max Bump At Landscaping 0", 0.5f, new ConfigDescription("Tallest bump (m above the ground around it) knocked down at Landscaping 0.", new AcceptableValueRange<float>(0.1f, 8f)));
+		bumpAtHundred = mod.config(Section, "Max Bump At Landscaping 100", 3f, new ConfigDescription("Tallest bump knocked down at Landscaping 100.", new AcceptableValueRange<float>(0.1f, 8f)));
+		levelAtZero = mod.config(Section, "Max Level Change At Landscaping 0", 1.5f, new ConfigDescription("How far (m) one level ground or Shift ramp strike can lower or raise a point at Landscaping 0.", new AcceptableValueRange<float>(0.25f, 16f)));
+		levelAtHundred = mod.config(Section, "Max Level Change At Landscaping 100", 8f, new ConfigDescription("How far one level ground or Shift ramp strike can lower or raise a point at Landscaping 100 (16 = no limit).", new AcceptableValueRange<float>(0.25f, 16f)));
 		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
 		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
@@ -286,6 +296,9 @@ internal static class Landscaping
 		public bool path;
 		public bool raise;
 		public TerrainZones.Ramp? ramp;
+		public float maxBump = float.MaxValue;
+		public float maxChange = float.MaxValue;
+		public Dictionary<(Heightmap, int), float>? before;
 	}
 
 	[HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.Awake))]
@@ -356,6 +369,17 @@ internal static class Landscaping
 				raise = s.m_raise,
 			};
 
+			if (skillLimits.Value == Toggle.On)
+			{
+				float skill = player.GetSkillFactor("Landscaping");
+				__state.maxBump = Mathf.Lerp(bumpAtZero.Value, bumpAtHundred.Value, skill);
+				if (__state.level)
+				{
+					__state.maxChange = Mathf.Lerp(levelAtZero.Value, levelAtHundred.Value, skill);
+					__state.before = TerrainZones.Deltas(__state.center, __state.radius);
+				}
+			}
+
 			// The ramp's slope is read from the ground before the strike changes it.
 			if (WantsRamp(__state) && rampMode.Value == RampMode.Slope)
 			{
@@ -394,12 +418,22 @@ internal static class Landscaping
 			// Ramping only on request by default: Shift (which no longer sprints with the hoe out).
 			bool ease = WantsRamp(__state);
 			bool relax = ease && rampMode.Value == RampMode.Relax;
-			if (bumps || relax || __state.ramp != null)
+			TerrainZones.Result result = default;
+			if (bumps || relax || __state.ramp != null || __state.before != null)
 			{
-				TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, relax ? maxSlope.Value : -1f, relax && __state.level, rampStyle.Value, __state.ramp);
+				result = TerrainZones.Tidy(__state.center, __state.radius, bumps ? bumpHeight.Value : -1f, __state.maxBump, relax ? maxSlope.Value : -1f, relax && __state.level, rampStyle.Value, __state.ramp, __state.before, __state.maxChange);
 			}
 
-			if (TerrainZones.AtLimit(__state.center, __state.radius, true, true))
+			if (result.tooDeep || result.tooHigh)
+			{
+				string way = result.tooDeep && result.tooHigh ? "dig or fill" : result.tooDeep ? "dig" : "fill";
+				CantDo($"Your Landscaping lets one strike {way} only {__state.maxChange:0.#} m here. Strike again to go further.");
+			}
+			else if (result.bigBumps)
+			{
+				CantDo($"A bump here is too big for your Landscaping (up to {__state.maxBump:0.#} m). Strike again, or use a pickaxe.");
+			}
+			else if (TerrainZones.AtLimit(__state.center, __state.radius, true, true))
 			{
 				CantDo("Part of this ground can't be dug or raised further (8 m from where the world made it).");
 			}
@@ -585,13 +619,47 @@ internal static class TerrainZones
 		public readonly List<(Heightmap hmap, TerrainComp comp, int x, int y)> owners = new();
 	}
 
-	public static void Tidy(Vector3 center, float radius, float bumpHeight, float maxSlopeDegrees, bool levelEdgesOnly, RampStyle style, Ramp? ramp)
+	internal struct Result
 	{
+		public bool bigBumps;
+		public bool tooDeep;
+		public bool tooHigh;
+	}
+
+	// Each vertex's height above the generated ground (level + smooth delta) inside the brush, per
+	// heightmap, read before a strike so Tidy can limit how far the strike moved it.
+	public static Dictionary<(Heightmap, int), float> Deltas(Vector3 center, float radius)
+	{
+		Dictionary<(Heightmap, int), float> deltas = new();
+		heightmaps.Clear();
+		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
+		foreach (Heightmap hmap in heightmaps)
+		{
+			TerrainComp comp = hmap.GetAndCreateTerrainCompiler();
+			if (comp == null || !comp.m_initialized || comp.m_levelDelta == null)
+			{
+				continue;
+			}
+			for (int i = 0; i < comp.m_levelDelta.Length; i++)
+			{
+				float d = comp.m_levelDelta[i] + comp.m_smoothDelta[i];
+				if (d != 0f)
+				{
+					deltas[(hmap, i)] = d;
+				}
+			}
+		}
+		return deltas;
+	}
+
+	public static Result Tidy(Vector3 center, float radius, float bumpHeight, float maxBump, float maxSlopeDegrees, bool levelEdgesOnly, RampStyle style, Ramp? ramp, Dictionary<(Heightmap, int), float>? before, float maxChange)
+	{
+		Result result = default;
 		heightmaps.Clear();
 		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
 		if (heightmaps.Count == 0)
 		{
-			return;
+			return result;
 		}
 
 		float scale = heightmaps[0].m_scale;
@@ -602,7 +670,7 @@ internal static class TerrainZones
 			if (comp == null || !comp.m_initialized || !comp.IsOwner() || comp.m_levelDelta == null)
 			{
 				// Without ownership our change wouldn't reach anyone; leave this zone as it is.
-				return;
+				return result;
 			}
 
 			// The strike's changes are in the deltas but not yet in the heights: rebuild now.
@@ -645,7 +713,7 @@ internal static class TerrainZones
 
 		if (bumpHeight > 0f)
 		{
-			FlattenBumps(grid, bumpHeight);
+			result.bigBumps = FlattenBumps(grid, bumpHeight, maxBump);
 		}
 		if (ramp != null)
 		{
@@ -660,7 +728,7 @@ internal static class TerrainZones
 		foreach (KeyValuePair<(int, int), Point> p in grid)
 		{
 			float diff = p.Value.height - start[p.Key];
-			if (!p.Value.inside || Mathf.Abs(diff) < 0.001f)
+			if (!p.Value.inside || (Mathf.Abs(diff) < 0.001f && before == null))
 			{
 				continue;
 			}
@@ -668,7 +736,26 @@ internal static class TerrainZones
 			{
 				// Same bookkeeping as vanilla's LevelTerrain: fold the smoothing into the level delta.
 				int i = y * (comp.m_width + 1) + x;
-				comp.m_levelDelta[i] = Mathf.Clamp(comp.m_levelDelta[i] + comp.m_smoothDelta[i] + diff, -8f, 8f);
+				float delta = comp.m_levelDelta[i] + comp.m_smoothDelta[i] + diff;
+				if (before != null)
+				{
+					// The skill limits how far this strike (vanilla's part and ours) moved the point.
+					before.TryGetValue((hmap, i), out float was);
+					if (delta < was - maxChange - 0.01f)
+					{
+						result.tooDeep = true;
+					}
+					else if (delta > was + maxChange + 0.01f)
+					{
+						result.tooHigh = true;
+					}
+					delta = Mathf.Clamp(delta, was - maxChange, was + maxChange);
+					if (Mathf.Abs(delta - comp.m_levelDelta[i] - comp.m_smoothDelta[i]) < 0.001f)
+					{
+						continue;
+					}
+				}
+				comp.m_levelDelta[i] = Mathf.Clamp(delta, -8f, 8f);
 				comp.m_smoothDelta[i] = 0f;
 				comp.m_modifiedHeight[i] = true;
 				changed.Add(hmap);
@@ -680,6 +767,7 @@ internal static class TerrainZones
 			hmap.GetAndCreateTerrainCompiler().Save(false);
 			hmap.Poke(0, false);
 		}
+		return result;
 	}
 
 	// A planned ramp: an even slope through the brush centre, rising `slope` metres per metre along
@@ -860,8 +948,9 @@ internal static class TerrainZones
 	// wide (the ring two points out). Measuring against a plane, not the highest neighbour, also
 	// catches lumps on a sloped road. The rings are symmetric, so the plane is just the mean height
 	// plus the slope along x and z.
-	private static void FlattenBumps(Dictionary<(int, int), Point> grid, float bumpHeight)
+	private static bool FlattenBumps(Dictionary<(int, int), Point> grid, float bumpHeight, float maxBump)
 	{
+		bool tooBig = false;
 		for (int pass = 0; pass < 4; pass++)
 		{
 			(int, int)[] around = pass % 2 == 0 ? around8 : ring16;
@@ -910,12 +999,22 @@ internal static class TerrainZones
 				{
 					worst = Mathf.Max(worst, Mathf.Abs(grid[(p.Key.Item1 + dx, p.Key.Item2 + dz)].height - (mean + gx * dx + gz * dz)));
 				}
-				if (worst <= excess * 0.25f)
+				if (worst > excess * 0.25f)
+				{
+					continue;
+				}
+				if (excess > maxBump)
+				{
+					// Too big for the skill: leave it and say so.
+					tooBig = true;
+				}
+				else
 				{
 					p.Value.height = mean;
 				}
 			}
 		}
+		return tooBig;
 	}
 
 	// Spreads any step steeper than maxStep (height per grid point) over the points inside the brush,
