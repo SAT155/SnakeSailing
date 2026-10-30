@@ -34,6 +34,8 @@ git history).
   prefab (config list, stars add a bonus), given in steps of 1 because one `Skills.RaiseSkill`
   can only gain one level. While a fish is on the line, `Player.RaiseSkill(Fishing)` is scaled by
   `1 + fishXp x Reeling XP Per Fish XP`.
+  1.3: a `Recipe.GetAmount` postfix gives more Raw fish and Fish 'n' Bread with Fishing skill, and
+  adds vanilla's per-star bonus to Fish 'n' Bread (it only applies to one-ingredient recipes).
 - **Landscaping (`Landscaping.cs`)**, new skill for the vanilla hoe. `GetBuildStamina` postfix
   cuts stamina by skill; a `TerrainOp.Awake` prefix scales the strike's radii by skill (Left Alt +
   wheel picks a size), claims ownership of every terrain zone it touches (a non-owner's strike is

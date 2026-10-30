@@ -13,6 +13,10 @@ for the SnakeSquad server.
   fish, from 10 for a Perch up to 150 for a Magmafish, more for starred fish. Reeling in a hard
   fish also trains faster (up to 4x for a Magmafish). Vanilla gives nothing for the catch and the
   same reeling XP for every fish. All amounts are in the *6 - Fishing* config section.
+- **More from your fish** (Fishing skill): turning fish into Raw fish fillets and Uncooked Fish 'n'
+  Bread gives more as Fishing levels up, up to twice as much at 100. Fish 'n' Bread now also counts
+  the Anglerfish's stars like fillets do (a 2-star Anglerfish makes 2, a 3-star 3, before the
+  skill bonus). The craft uses the first Anglerfish in your inventory.
 - **Landscaping** (new skill, vanilla hoe): every hoe strike trains it. With skill each strike
   costs less stamina (up to 60% less at 100) and the brush can get bigger (up to 2.5x the vanilla
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
