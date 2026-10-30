@@ -125,7 +125,7 @@
     <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="CheckGameReferences">
         <ItemGroup>
             <_GameDll Include="$(ManagedDir)/*.dll"
-                      Exclude="$(ManagedDir)/assembly_valheim.dll;$(ManagedDir)/assembly_utils.dll;$(ManagedDir)/assembly_guiutils.dll;$(ManagedDir)/System*.dll;$(ManagedDir)/mscorlib.dll;$(ManagedDir)/netstandard.dll;$(ManagedDir)/Mono.*.dll;$(ManagedDir)/Microsoft.*.dll"/>
+                      Exclude="$(ManagedDir)/assembly_valheim.dll;$(ManagedDir)/assembly_utils.dll;$(ManagedDir)/assembly_guiutils.dll;$(ManagedDir)/System*.dll;$(ManagedDir)/mscorlib.dll;$(ManagedDir)/netstandard.dll;$(ManagedDir)/Mono.*.dll;$(ManagedDir)/Microsoft.*.dll;$(ManagedDir)/UnityEngine.ImageConversionModule.dll"/>
             <Reference Include="%(_GameDll.Filename)">
                 <HintPath>%(_GameDll.FullPath)</HintPath>
                 <Private>false</Private>

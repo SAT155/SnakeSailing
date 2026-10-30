@@ -115,7 +115,13 @@ internal static class RestoreTerrain
 		byte[] data = new byte[stream.Length];
 		_ = stream.Read(data, 0, data.Length);
 		Texture2D texture = new(2, 2);
-		texture.LoadImage(data);
+		// ImageConversion.LoadImage by reflection: referencing its module at build time pulls in
+		// netstandard 2.1, which a net48 build can't use (CS1705).
+		MethodInfo? load = System.Type.GetType("UnityEngine.ImageConversion, UnityEngine.ImageConversionModule")?.GetMethod("LoadImage", new[] { typeof(Texture2D), typeof(byte[]) });
+		if (load == null || !(bool)load.Invoke(null, new object[] { texture, data }))
+		{
+			return null;
+		}
 		return Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
 	}
 
