@@ -10,7 +10,7 @@ namespace SnakeSkills;
 ///
 /// Vanilla <c>Skills.Load</c> drops every skill id it doesn't know (<c>IsSkillValid</c>), and the
 /// next save writes the list without them, so one unmodded login wiped Sailing, Ranching and
-/// Mining for good. <c>Player.m_customData</c> is a string dictionary that vanilla loads and saves
+/// Mining (and now Landscaping) for good. <c>Player.m_customData</c> is a string dictionary that vanilla loads and saves
 /// untouched, so every save also copies the levels there ("SnakeSkills_Sailing" =
 /// "level;accumulator"). On load, a skill that is missing from the vanilla skill list is put back
 /// from that copy. A skill that is present wins, since it is the newer of the two.
@@ -18,7 +18,7 @@ namespace SnakeSkills;
 internal static class SkillBackup
 {
 	private const string KeyPrefix = "SnakeSkills_";
-	internal static readonly string[] SkillNames = { "Sailing", "Ranching", "Mining" };
+	internal static readonly string[] SkillNames = { "Sailing", "Ranching", "Mining", "Landscaping" };
 
 	private static readonly HashSet<Skills.SkillType> missingAtLoad = new();
 

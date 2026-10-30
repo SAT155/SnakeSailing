@@ -34,6 +34,14 @@ git history).
   prefab (config list, stars add a bonus), given in steps of 1 because one `Skills.RaiseSkill`
   can only gain one level. While a fish is on the line, `Player.RaiseSkill(Fishing)` is scaled by
   `1 + fishXp x Reeling XP Per Fish XP`.
+- **Landscaping (`Landscaping.cs`)**, new skill for the vanilla hoe. `GetBuildStamina` postfix
+  cuts stamina by skill; a `TerrainOp.Awake` prefix scales the strike's radii by skill (Left Alt +
+  wheel picks a size), claims ownership of every terrain zone it touches (a non-owner's strike is
+  sent as just the prefab hash, so a bigger brush would be lost; same fix as SnakeSmarterHoe), and
+  raises the skill. The postfix regenerates the heightmaps, then lowers lone bumps and spreads
+  steps steeper than the cart slope over the points inside the brush, written into the
+  `TerrainComp` level deltas like vanilla `LevelTerrain`. `UpdatePlacementGhost` resizes the
+  ghost; `CheckRun` blocks sprint in hoe build mode. Off while SmarterHoe is loaded.
 - `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
 - Upstream's hard block on Valheim Plus is a warning instead.
 

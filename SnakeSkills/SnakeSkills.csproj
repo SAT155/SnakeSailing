@@ -78,22 +78,6 @@
             <Publicize>true</Publicize>
             <Private>false</Private>
         </Reference>
-        <Reference Include="UnityEngine">
-            <HintPath>$(ManagedDir)/UnityEngine.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="UnityEngine.CoreModule">
-            <HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="UnityEngine.InputLegacyModule">
-            <HintPath>$(ManagedDir)/UnityEngine.InputLegacyModule.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <Reference Include="UnityEngine.PhysicsModule">
-            <HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
         <Reference Include="ServerSync">
             <HintPath>Libs/ServerSync.dll</HintPath>
         </Reference>
@@ -114,12 +98,14 @@
         <Compile Include="Ranching.cs"/>
         <Compile Include="Mining.cs"/>
         <Compile Include="Fishing.cs"/>
+        <Compile Include="Landscaping.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
         <EmbeddedResource Include="icons/sailing.png"/>
         <EmbeddedResource Include="icons/ranching.png"/>
         <EmbeddedResource Include="icons/mining.png"/>
+        <EmbeddedResource Include="icons/landscaping.png"/>
         <None Include="ILRepack.targets"/>
         <None Include="Libs/ServerSync.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -132,6 +118,17 @@
         </None>
         <None Include="App.config"/>
     </ItemGroup>
+    <!-- Every Unity module the game ships (Projector, CircleProjector's ParticleSystem, ...), like SnakeWood. -->
+    <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="CheckGameReferences">
+        <ItemGroup>
+            <_GameDll Include="$(ManagedDir)/*.dll"
+                      Exclude="$(ManagedDir)/assembly_valheim.dll;$(ManagedDir)/assembly_utils.dll;$(ManagedDir)/assembly_guiutils.dll;$(ManagedDir)/System*.dll;$(ManagedDir)/mscorlib.dll;$(ManagedDir)/netstandard.dll;$(ManagedDir)/Mono.*.dll;$(ManagedDir)/Microsoft.*.dll"/>
+            <Reference Include="%(_GameDll.Filename)">
+                <HintPath>%(_GameDll.FullPath)</HintPath>
+                <Private>false</Private>
+            </Reference>
+        </ItemGroup>
+    </Target>
     <Target Name="CheckGameReferences" BeforeTargets="ResolveReferences">
         <Error Condition="!Exists('$(ManagedDir)/assembly_valheim.dll')" Text="Valheim game assemblies not found. Set GamePath to your Valheim install (Steam auto-detected), or pass ManagedDir directly."/>
         <Error Condition="!Exists('$(BepInExDir)/core/BepInEx.dll')" Text="BepInEx assemblies not found. Install BepInEx into GamePath, or pass BepInExDir directly."/>
