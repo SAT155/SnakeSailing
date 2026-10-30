@@ -20,6 +20,10 @@ for the SnakeSquad server.
   the brush, and path/paved road strikes even out steps too steep for a cart (25 degrees) into a
   ramp, only inside the brush. Shift doesn't sprint while the hoe is out, so stamina recovers
   between strikes. Not compatible with SmarterHoe: if it is installed the hoe is left alone.
+- **Pulsating Earrings** (vanilla trinket): while worn they give a permanent **+25 max eitr** on
+  top of your food (works with no eitr food too), plus an optional always-on eitr regen bonus
+  (off by default). Their adrenaline effect is unchanged, so ViableTrinkets still works. Amounts
+  are in the *8 - Trinkets* config section; the bonus shows in the item description.
 
 ## Your skill levels are safe now
 
@@ -47,7 +51,7 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 ## Config sections
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
-4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping
+4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
 ships, taming and mining).

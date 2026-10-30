@@ -79,6 +79,7 @@ public class SnakeSkillsPlugin : BaseUnityPlugin
 		Mining.Init(this);
 		Fishing.Init(this);
 		Landscaping.Init(this);
+		Trinkets.Init(this);
 
 		Harmony harmony = new(ModGUID);
 		harmony.PatchAll(Assembly.GetExecutingAssembly());
