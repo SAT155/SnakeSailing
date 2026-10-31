@@ -48,6 +48,10 @@ internal static class Mining
 		mining.SkillLoss = experienceLoss.Value;
 	}
 
+	/// <summary>Pickaxe damage multiplier from the Mining skill (used by Ember Blast, whose hits
+	/// don't go through SEMan.ModifyAttack).</summary>
+	internal static float DamageMultiplier(Player player) => 1 + player.GetSkillFactor("Mining") * (miningDamageFactor.Value - 1);
+
 	internal static void Update()
 	{
 		if (explosionToggleHotkey.Value.IsDown())

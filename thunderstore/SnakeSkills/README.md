@@ -45,6 +45,11 @@ for the SnakeSquad server.
   top of your food (works with no eitr food too), plus an optional always-on eitr regen bonus
   (off by default). Their adrenaline effect is unchanged, so ViableTrinkets still works. Amounts
   are in the *8 - Trinkets* config section; the bonus shows in the item description.
+- **Ember Blast** (vanilla Staff of Embers): middle click fires a blasting charge. The fireball
+  breaks rocks and ore deposits within 4 m of where it lands, like dynamite, with 150 pickaxe
+  damage (raised by Mining like a pickaxe) at Black metal pickaxe tier. It does nothing to
+  creatures, players or buildings. Costs half again the eitr of a fireball. Blasted rock trains
+  Mining and gets Mining's ore bonus. Settings in *9 - Ember Blast*.
 
 ## Your skill levels are safe now
 
@@ -72,7 +77,7 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 ## Config sections
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
-4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets
+4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
 ships, taming and mining).

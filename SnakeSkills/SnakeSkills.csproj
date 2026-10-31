@@ -101,6 +101,7 @@
         <Compile Include="Landscaping.cs"/>
         <Compile Include="RestoreTerrain.cs"/>
         <Compile Include="Trinkets.cs"/>
+        <Compile Include="EmberBlast.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
