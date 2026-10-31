@@ -61,6 +61,7 @@ internal static class Landscaping
 	private static ConfigEntry<float> brushSize = null!;
 	private static ConfigEntry<Toggle> rampNeedsShift = null!;
 	private static ConfigEntry<RampMode> rampMode = null!;
+	private static ConfigEntry<Toggle> clickLevelsToFeet = null!;
 
 	private static Skill landscaping = null!;
 	private static bool smarterHoeLoaded;
@@ -96,6 +97,7 @@ internal static class Landscaping
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
 		rampNeedsShift = mod.config(Section, "Ramp Only With Shift", Toggle.On, "If on, slope ramping only happens on strikes made while holding Shift. Off ramps on every level ground/path/paved strike (as in SnakeSkills 1.2 and 1.3).");
 		rampMode = mod.config(Section, "Shift Ramp Mode", RampMode.FromFeet, "FromFeet: the strike shapes the brush into a ramp that starts at your feet and runs toward the brush, rising or falling like the ground does there but never steeper than Max Cart Slope (on a steeper hill it cuts into it), and level across. Strike ahead while walking up or down to lay a continuous road. Switchback (1.5-1.9): a ramp along the ground's own slope, or across a too-steep hill toward where you look. Relax (1.2-1.4): only evens out steps steeper than Max Cart Slope between neighbouring points.");
+		clickLevelsToFeet = mod.config(Section, "Click Levels To Feet", Toggle.On, "If on, a level ground, path or paved road strike without Shift cuts and fills the brush to a level road at the height of your feet (Shift makes the sloped ramp). Off: the plain strike is vanilla's (level ground levels to where you click, paths only smooth).");
 		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a ramp may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
@@ -224,6 +226,10 @@ internal static class Landscaping
 			{
 				lines.Add("Left Alt + mouse wheel: brush size (bigger with Landscaping)");
 				lines.Add("Middle click: reset brush size");
+			}
+			if (s != null && !s.m_raise && clickLevelsToFeet.Value == Toggle.On && rampNeedsShift.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			{
+				lines.Add("Click: level road at your feet's height");
 			}
 			if (s != null && !s.m_raise && (s.m_level ? easeLevel.Value : easePaths.Value) == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
@@ -374,7 +380,7 @@ internal static class Landscaping
 			{
 				float skill = player.GetSkillFactor("Landscaping");
 				__state.maxBump = Mathf.Lerp(bumpAtZero.Value, bumpAtHundred.Value, skill);
-				if (__state.level)
+				if (__state.level || __state.path)
 				{
 					__state.maxChange = Mathf.Lerp(levelAtZero.Value, levelAtHundred.Value, skill);
 					__state.before = TerrainZones.Deltas(__state.center, __state.radius);
@@ -382,7 +388,12 @@ internal static class Landscaping
 			}
 
 			// The ramp's slope is read from the ground before the strike changes it.
-			if (WantsRamp(__state) && rampMode.Value != RampMode.Relax)
+			if (!WantsRamp(__state) && clickLevelsToFeet.Value == Toggle.On && (__state.level || __state.path))
+			{
+				// A plain strike: a level road at the height of the player's feet.
+				__state.ramp = new TerrainZones.Ramp { baseHeight = player.transform.position.y, dir = Vector2.right, slope = 0f, style = rampStyle.Value };
+			}
+			else if (WantsRamp(__state) && rampMode.Value != RampMode.Relax)
 			{
 				Vector3 facing = GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward;
 				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value, rampMode.Value == RampMode.FromFeet ? player.transform.position : null);

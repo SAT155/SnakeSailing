@@ -22,7 +22,8 @@ for the SnakeSquad server.
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down small lumps (up to three
   points wide, also on sloped roads) in
-  the brush. Hold Shift while striking to shape the brush into a ramp a cart can take
+  the brush. A plain strike cuts and fills the brush to a level road at the height of your feet (*Click Levels
+  To Feet* Off gives vanilla). Hold Shift while striking to shape the brush into a ramp a cart can take
   (25 degrees) that starts at your feet and runs toward the brush: strike ahead while walking up or
   down a hill and the strikes join into one road. On a hill steeper than that it cuts into it.
   The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
