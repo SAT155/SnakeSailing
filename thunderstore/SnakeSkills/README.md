@@ -33,7 +33,9 @@ for the SnakeSquad server.
   (a skill limit, the game's 8 m limit on digging or raising, or a rock that isn't terrain) the
   brush flashes a dim red and a message says why. Older behaviour: *Shift Ramp Mode* Switchback gives the 1.5-1.9 ramps; Relax with *Ramp Only With Shift* Off and *Shift Ramp Style*
   Spread gives the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
-  between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
+  between strikes. **Raise ground** builds a ramp up from your feet toward the brush at the cart
+  slope instead of a mound, needs no workbench from Landscaping 50, and costs less stone with skill
+  (half at 100). From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
   ground), with no stone or workbench. One strike moves up to 2 m³ at the unlock level and 20 m³ at
   100, less toward the brush edge so a partial restore stays smooth. Once the ground is fully back,

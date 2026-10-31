@@ -62,6 +62,9 @@ internal static class Landscaping
 	private static ConfigEntry<Toggle> rampNeedsShift = null!;
 	private static ConfigEntry<RampMode> rampMode = null!;
 	private static ConfigEntry<Toggle> clickLevelsToFeet = null!;
+	private static ConfigEntry<Toggle> raiseRamps = null!;
+	private static ConfigEntry<int> raiseNoBenchLevel = null!;
+	private static ConfigEntry<float> raiseStoneReduction = null!;
 
 	private static Skill landscaping = null!;
 	private static bool smarterHoeLoaded;
@@ -98,6 +101,9 @@ internal static class Landscaping
 		rampNeedsShift = mod.config(Section, "Ramp Only With Shift", Toggle.On, "If on, slope ramping only happens on strikes made while holding Shift. Off ramps on every level ground/path/paved strike (as in SnakeSkills 1.2 and 1.3).");
 		rampMode = mod.config(Section, "Shift Ramp Mode", RampMode.FromFeet, "FromFeet: the strike shapes the brush into a ramp that starts at your feet and runs toward the brush, rising or falling like the ground does there but never steeper than Max Cart Slope (on a steeper hill it cuts into it), and level across. Strike ahead while walking up or down to lay a continuous road. Switchback (1.5-1.9): a ramp along the ground's own slope, or across a too-steep hill toward where you look. Relax (1.2-1.4): only evens out steps steeper than Max Cart Slope between neighbouring points.");
 		clickLevelsToFeet = mod.config(Section, "Click Levels To Feet", Toggle.On, "If on, a level ground, path or paved road strike without Shift cuts and fills the brush to a level road at the height of your feet (Shift makes the sloped ramp). Off: the plain strike is vanilla's (level ground levels to where you click, paths only smooth).");
+		raiseRamps = mod.config(Section, "Raise Builds Ramps", Toggle.On, "If on, Raise ground builds a ramp instead of a mound: from your feet up toward the brush at Max Cart Slope, level across, only ever adding ground. Strike ahead while walking up it to keep climbing. Off: vanilla mound.");
+		raiseNoBenchLevel = mod.config(Section, "Raise Without Workbench Level", 50, new ConfigDescription("Landscaping level from which Raise ground no longer needs a workbench nearby (it still costs stone). 101 = always needs one. Re-equip the hoe after reaching it.", new AcceptableValueRange<int>(0, 101)));
+		raiseStoneReduction = mod.config(Section, "Raise Stone Reduction", 0.5f, new ConfigDescription("Share of Raise ground's stone cost saved at Landscaping 100 (0.5 = half). Scales with the skill, never below 1 stone. Re-equip the hoe to update.", new AcceptableValueRange<float>(0f, 1f)));
 		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a ramp may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
@@ -200,6 +206,39 @@ internal static class Landscaping
 
 	private const string HintMarker = "<color=#c0c0c0>";
 
+	// Raise ground without a workbench from a Landscaping level: the build menu checks the piece's
+	// m_craftingStation, so clear it (and put it back below the level or with the mod off).
+	private static readonly Dictionary<Piece, CraftingStation> benches = new();
+	private static readonly Dictionary<Piece.Requirement, int> costs = new();
+
+	internal static void RaiseStations(PieceTable table, Player player)
+	{
+		bool free = Active && player.GetSkillFactor("Landscaping") * 100f >= raiseNoBenchLevel.Value - 0.001f;
+		foreach (GameObject go in table.m_pieces)
+		{
+			if (go == null || go.GetComponent<Piece>() is not { } piece || go.GetComponent<TerrainOp>() is not { m_settings.m_raise: true })
+			{
+				continue;
+			}
+			if (piece.m_craftingStation != null)
+			{
+				benches[piece] = piece.m_craftingStation;
+			}
+			piece.m_craftingStation = free ? null : benches.TryGetValue(piece, out CraftingStation bench) ? bench : piece.m_craftingStation;
+
+			// Stone: less with skill.
+			float keep = 1f - (Active ? raiseStoneReduction.Value * player.GetSkillFactor("Landscaping") : 0f);
+			foreach (Piece.Requirement req in piece.m_resources)
+			{
+				if (!costs.TryGetValue(req, out int cost))
+				{
+					costs[req] = cost = req.m_amount;
+				}
+				req.m_amount = cost <= 0 ? cost : Mathf.Max(1, Mathf.RoundToInt(cost * keep));
+			}
+		}
+	}
+
 	// Control hints under each hoe tool's description in the build menu (the description is
 	// localized as a whole, so the vanilla token in front still works).
 	internal static void AddHints(PieceTable table)
@@ -234,6 +273,10 @@ internal static class Landscaping
 			if (s != null && !s.m_raise && (s.m_level ? easeLevel.Value : easePaths.Value) == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
 				lines.Add(rampNeedsShift.Value == Toggle.On ? "Hold Shift: cart ramp from your feet to the brush" : "Shapes a cart ramp from your feet to the brush");
+			}
+			if (s != null && s.m_raise && raiseRamps.Value == Toggle.On)
+			{
+				lines.Add("Builds a cart ramp up from your feet toward the brush");
 			}
 			if (s != null && !s.m_raise && flattenBumps.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
@@ -328,7 +371,8 @@ internal static class Landscaping
 
 			TerrainOp.Settings s = __instance.m_settings;
 			float scale = BrushScale(player);
-			if (scale > 1.001f)
+			bool raiseRamp = s.m_raise && raiseRamps.Value == Toggle.On;
+			if (scale > 1.001f || raiseRamp)
 			{
 				// A copy: the instance's settings object may be shared with the prefab's.
 				__instance.m_settings = new TerrainOp.Settings
@@ -337,7 +381,8 @@ internal static class Landscaping
 					m_level = s.m_level,
 					m_levelRadius = s.m_levelRadius * scale,
 					m_square = s.m_square,
-					m_raise = s.m_raise,
+					// A ramp replaces the mound; the strike still paints and claims the zones.
+					m_raise = s.m_raise && !raiseRamp,
 					m_raiseRadius = s.m_raiseRadius * scale,
 					m_raiseDelta = s.m_raiseDelta,
 					m_raisePower = s.m_raisePower,
@@ -373,14 +418,18 @@ internal static class Landscaping
 				radius = s.m_level ? s.m_levelRadius : Mathf.Max(s.m_smooth ? s.m_smoothRadius : 0f, s.m_paintRadius),
 				level = s.m_level && !s.m_raise,
 				path = !s.m_level && !s.m_raise && (s.m_smooth || s.m_paintCleared),
-				raise = s.m_raise,
+				raise = s.m_raise || raiseRamp,
 			};
+			if (raiseRamp)
+			{
+				__state.radius = s.m_raiseRadius;
+			}
 
 			if (skillLimits.Value == Toggle.On)
 			{
 				float skill = player.GetSkillFactor("Landscaping");
 				__state.maxBump = Mathf.Lerp(bumpAtZero.Value, bumpAtHundred.Value, skill);
-				if (__state.level || __state.path)
+				if (__state.level || __state.path || raiseRamp)
 				{
 					__state.maxChange = Mathf.Lerp(levelAtZero.Value, levelAtHundred.Value, skill);
 					__state.before = TerrainZones.Deltas(__state.center, __state.radius);
@@ -388,7 +437,11 @@ internal static class Landscaping
 			}
 
 			// The ramp's slope is read from the ground before the strike changes it.
-			if (!WantsRamp(__state) && clickLevelsToFeet.Value == Toggle.On && (__state.level || __state.path))
+			if (raiseRamp)
+			{
+				__state.ramp = TerrainZones.UpRamp(player.transform.position, __state.center, maxSlope.Value, GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward);
+			}
+			else if (!WantsRamp(__state) && clickLevelsToFeet.Value == Toggle.On && (__state.level || __state.path))
 			{
 				// A plain strike: a level road at the height of the player's feet.
 				__state.ramp = new TerrainZones.Ramp { baseHeight = player.transform.position.y, dir = Vector2.right, slope = 0f, style = rampStyle.Value };
@@ -412,7 +465,7 @@ internal static class Landscaping
 			{
 				return;
 			}
-			if (!__state.level && !__state.path)
+			if (!__state.level && !__state.path && __state.ramp == null)
 			{
 				// Raise ground: say so when the ground can't go any higher.
 				if (__state.raise && TerrainZones.AtLimit(__state.center, __state.radius, true, false))
@@ -797,6 +850,21 @@ internal static class TerrainZones
 	// directions where the ground rises at exactly the cart slope, the one closer to where the
 	// player looks (either way along it). The ground rises along d at |G|·cos(angle between d and G),
 	// so that angle is acos(maxSlope / |G|).
+	// Raise ground's ramp: from the player's feet up toward the brush at the cart slope, only adding
+	// ground.
+	public static Ramp UpRamp(Vector3 feet, Vector3 center, float maxSlopeDegrees, Vector3 facing)
+	{
+		Vector2 toward = new(center.x - feet.x, center.z - feet.z);
+		float reach = toward.magnitude;
+		if (reach < 0.5f)
+		{
+			toward = new Vector2(facing.x, facing.z);
+			reach = 0f;
+		}
+		float slope = Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad);
+		return new Ramp { dir = toward.normalized, slope = slope, baseHeight = feet.y + slope * reach, style = RampStyle.Fill };
+	}
+
 	// With feet (FromFeet mode) the ramp instead runs from the player's feet toward the brush centre,
 	// at the ground's slope along that line clamped to the cart slope, so strikes ahead of a walking
 	// player join into one road whichever way they face.
