@@ -19,7 +19,7 @@ namespace SnakeSkills;
 public class SnakeSkillsPlugin : BaseUnityPlugin
 {
 	internal const string ModName = "SnakeSkills";
-	internal const string ModVersion = "1.12.0";
+	internal const string ModVersion = "1.13.0";
 	internal const string ModGUID = "com.snakesquad.snakeskills";
 	internal const string SailingGUID = "org.bepinex.plugins.sailing";
 	internal const string RanchingGUID = "org.bepinex.plugins.ranching";
@@ -81,6 +81,7 @@ public class SnakeSkillsPlugin : BaseUnityPlugin
 		Landscaping.Init(this);
 		RestoreTerrain.Init(this);
 		Trinkets.Init(this);
+		EmberBlast.Init(this);
 
 		Harmony harmony = new(ModGUID);
 		harmony.PatchAll(Assembly.GetExecutingAssembly());
