@@ -22,16 +22,16 @@ for the SnakeSquad server.
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down small lumps (up to three
   points wide, also on sloped roads) in
-  the brush. Hold Shift while striking to shape the brush into an even ramp a cart can take
-  (25 degrees). If the ground is gentle it follows the ground's slope; if it's too steep the ramp
-  runs across the hill, in the direction closest to where you look, like a road winding up a
-  hillside. The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
+  the brush. Hold Shift while striking to shape the brush into a ramp a cart can take
+  (25 degrees) that starts at your feet and runs toward the brush: strike ahead while walking up or
+  down a hill and the strikes join into one road. On a hill steeper than that it cuts into it.
+  The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
   tool's description in the build menu lists these controls. The skill also limits how big a bump
   you can knock down (0.5 m at 0, 3 m at 100) and how far one level ground strike can dig or fill
   (1.5 m at 0, 8 m at 100); strike again to go further. When a strike can't change something
   (a skill limit, the game's 8 m limit on digging or raising, or a rock that isn't terrain) the
-  brush flashes a dim red and a message says why. Older behaviour: *Ramp Mode* Relax, *Ramp Only With Shift* Off and *Shift Ramp Style*
-  Spread give the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
+  brush flashes a dim red and a message says why. Older behaviour: *Shift Ramp Mode* Switchback gives the 1.5-1.9 ramps; Relax with *Ramp Only With Shift* Off and *Shift Ramp Style*
+  Spread gives the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
   between strikes. From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
   ground), with no stone or workbench. One strike moves up to 2 m³ at the unlock level and 20 m³ at

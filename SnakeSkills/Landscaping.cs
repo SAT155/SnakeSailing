@@ -22,7 +22,8 @@ namespace SnakeSkills;
 // runs here at once, and the bump/slope pass right after it works on the result.
 internal enum RampMode
 {
-	Slope,
+	FromFeet,
+	Switchback,
 	Relax,
 }
 
@@ -94,7 +95,7 @@ internal static class Landscaping
 		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
 		rampNeedsShift = mod.config(Section, "Ramp Only With Shift", Toggle.On, "If on, slope ramping only happens on strikes made while holding Shift. Off ramps on every level ground/path/paved strike (as in SnakeSkills 1.2 and 1.3).");
-		rampMode = mod.config(Section, "Ramp Mode", RampMode.Slope, "Slope: the strike shapes the brush into one even ramp. If the ground is gentle enough it follows the ground's own slope; if it is too steep, the ramp runs across the hill at Max Cart Slope (like a road winding up a hillside) in the direction closest to where you are looking, instead of straight up the steepest part. Relax: the older behaviour (1.2-1.4), which only evens out steps steeper than Max Cart Slope between neighbouring points.");
+		rampMode = mod.config(Section, "Shift Ramp Mode", RampMode.FromFeet, "FromFeet: the strike shapes the brush into a ramp that starts at your feet and runs toward the brush, rising or falling like the ground does there but never steeper than Max Cart Slope (on a steeper hill it cuts into it), and level across. Strike ahead while walking up or down to lay a continuous road. Switchback (1.5-1.9): a ramp along the ground's own slope, or across a too-steep hill toward where you look. Relax (1.2-1.4): only evens out steps steeper than Max Cart Slope between neighbouring points.");
 		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a ramp may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
@@ -226,7 +227,7 @@ internal static class Landscaping
 			}
 			if (s != null && !s.m_raise && (s.m_level ? easeLevel.Value : easePaths.Value) == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
-				lines.Add(rampNeedsShift.Value == Toggle.On ? "Hold Shift: shape into a cart ramp (faces where you look)" : "Shapes into a cart ramp (faces where you look)");
+				lines.Add(rampNeedsShift.Value == Toggle.On ? "Hold Shift: cart ramp from your feet to the brush" : "Shapes a cart ramp from your feet to the brush");
 			}
 			if (s != null && !s.m_raise && flattenBumps.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
@@ -381,10 +382,10 @@ internal static class Landscaping
 			}
 
 			// The ramp's slope is read from the ground before the strike changes it.
-			if (WantsRamp(__state) && rampMode.Value == RampMode.Slope)
+			if (WantsRamp(__state) && rampMode.Value != RampMode.Relax)
 			{
 				Vector3 facing = GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward;
-				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value);
+				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value, rampMode.Value == RampMode.FromFeet ? player.transform.position : null);
 			}
 		}
 
@@ -785,7 +786,10 @@ internal static class TerrainZones
 	// directions where the ground rises at exactly the cart slope, the one closer to where the
 	// player looks (either way along it). The ground rises along d at |G|·cos(angle between d and G),
 	// so that angle is acos(maxSlope / |G|).
-	public static Ramp? PlanRamp(Vector3 center, float radius, float maxSlopeDegrees, Vector3 facing, RampStyle style)
+	// With feet (FromFeet mode) the ramp instead runs from the player's feet toward the brush centre,
+	// at the ground's slope along that line clamped to the cart slope, so strikes ahead of a walking
+	// player join into one road whichever way they face.
+	public static Ramp? PlanRamp(Vector3 center, float radius, float maxSlopeDegrees, Vector3 facing, RampStyle style, Vector3? feet)
 	{
 		heightmaps.Clear();
 		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
@@ -841,7 +845,21 @@ internal static class TerrainZones
 		float steep = g.magnitude;
 		float max = Mathf.Tan(maxSlopeDegrees * Mathf.Deg2Rad);
 		Ramp ramp = new() { baseHeight = baseHeight, style = style };
-		if (steep < 0.001f)
+		if (feet is { } f)
+		{
+			Vector2 toward = new(center.x - f.x, center.z - f.z);
+			float reach = toward.magnitude;
+			if (reach < 0.5f)
+			{
+				// Striking at your own feet: go the way you look.
+				toward = new Vector2(facing.x, facing.z);
+				reach = 0f;
+			}
+			ramp.dir = toward.normalized;
+			ramp.slope = Mathf.Clamp(Vector2.Dot(g, ramp.dir), -max, max);
+			ramp.baseHeight = f.y + ramp.slope * reach;
+		}
+		else if (steep < 0.001f)
 		{
 			ramp.dir = Vector2.right;
 			ramp.slope = 0f;
