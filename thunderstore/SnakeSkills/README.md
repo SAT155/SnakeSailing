@@ -22,19 +22,26 @@ for the SnakeSquad server.
   radius at 100). Hold Left Alt and turn the mouse wheel in hoe build mode to pick a size up to
   what your skill allows. Level ground, path and paved road strikes also knock down small lumps (up to three
   points wide, also on sloped roads) in
-  the brush. A plain strike cuts and fills the brush to a level road at the height of your feet (*Click Levels
-  To Feet* Off gives vanilla). Hold Shift while striking to shape the brush into a ramp a cart can take
-  (25 degrees) that starts at your feet and runs toward the brush: strike ahead while walking up or
-  down a hill and the strikes join into one road. On a hill steeper than that it cuts into it.
+  the brush. Otherwise a click and a Shift-click are the game's own strikes. **Hold Ctrl** to
+  see an incline that starts at your feet and runs the way you look; the mouse wheel sets its
+  angle (15 degrees to start, negative goes down) and a click shapes the brush onto it, blending
+  the sides into the ground around it. It follows you until your first Ctrl click, then stays put
+  while you hold Ctrl, so you can walk up it striking ahead for one straight ramp (Ctrl doesn't
+  crouch with the hoe out). **Hold Alt** to plan a longer ramp: Alt+click lays points (each gets
+  a marker), Alt+click the last point again saves it as a blueprint that everyone with SnakeSkills
+  sees, and Alt+click on the blueprint builds the part under your brush, at your brush size, paying
+  stamina like any strike. Built parts turn green, the rest stays amber, and the blueprint clears
+  itself once it's all built. Backspace undoes a point; Alt+Backspace removes the blueprint under
+  the brush (its maker or an admin).
   The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
   tool's description in the build menu lists these controls. The skill also limits how big a bump
   you can knock down (0.5 m at 0, 3 m at 100) and how far one level ground strike can dig or fill
   (1.5 m at 0, 8 m at 100); strike again to go further. When a strike can't change something
   (a skill limit, the game's 8 m limit on digging or raising, or a rock that isn't terrain) the
-  brush flashes a dim red and a message says why. Older behaviour: *Shift Ramp Mode* Switchback gives the 1.5-1.9 ramps; Relax with *Ramp Only With Shift* Off and *Shift Ramp Style*
-  Spread gives the 1.2-1.3 hoe; Relax + Fill gives 1.4. Shift doesn't sprint while the hoe is out, so stamina recovers
-  between strikes. **Raise ground** builds a ramp up from your feet toward the brush at the cart
-  slope instead of a mound, needs no workbench from Landscaping 50, and costs less stone with skill
+  brush flashes a dim red and a message says why. Older behaviour is in the config: *Click* LevelToFeet and *Shift Click* FromFeet give
+  1.11-1.13 (Switchback 1.5-1.9, Relax 1.2-1.4), *Raise Click* Ramp makes Raise ground build a
+  ramp up from your feet. Shift doesn't sprint while the hoe is out, so stamina recovers
+  between strikes. **Raise ground** needs no workbench from Landscaping 50, and costs less stone with skill
   (half at 100). From Landscaping 25 the hoe also gets **Restore terrain**: it moves the
   ground in the brush back toward how the world generated it (fills holes, takes down raised
   ground), with no stone or workbench. One strike moves up to 2 m³ at the unlock level and 20 m³ at
