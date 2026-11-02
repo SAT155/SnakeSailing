@@ -63,7 +63,8 @@ git history).
   menu (`BuildUi`, Deep North): a copy of the last tab button, plus a vanilla `RecentPieceList`
   appended to `BuildUi.m_pieceLists` and `TabHandler.m_tabs`, refilled with the stubs before
   `UpdatePieceButtons`; the stubs are filtered out of `ByUsagePieceList`/`ByMaterialPieceList`,
-  and each blueprint's picture becomes its icon.
+  and each blueprint's picture becomes its icon. 1.24: `BlueprintCostPanel.cs` (IMGUI) lists every material when there are more than
+  `Hud.m_requirementItems` slots, placed from the info panel's RectTransforms' screen corners.
   `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
   `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
   saves blueprints; 1.22 adds pictures (`BlueprintThumbnails.cs`: the stub cloned 5 km below the world on a spare layer for one frame, a disabled camera + light that only see that layer, `Camera.Render` into a RenderTexture, `ReadPixels`). SmartBuild's former plugin class is a component on SnakeSkills' object and

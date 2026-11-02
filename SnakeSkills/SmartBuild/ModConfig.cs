@@ -20,6 +20,8 @@ internal static class ModConfig
 
 	public static ConfigEntry<bool> BuildMenuTab;
 
+	public static ConfigEntry<bool> CostPanel;
+
 	// SnakeSkills: every SmartBuild section is shown as "Smart Hammer - <section>". The first time
 	// they appear in SnakeSkills' config, values come over from SmartBuild's/SnakeHammer's .cfg.
 	private const string SectionPrefix = "Smart Hammer - ";
@@ -160,6 +162,7 @@ internal static class ModConfig
 			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints. Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's build menu, on the Blueprints tab.");
 			ListThumbnails = config.Bind(MainSection, "Blueprint List Pictures", true, "Show a small picture of each blueprint in the blueprint list and as its icon in the build menu. They are drawn while the hammer is out (one per frame) and kept until the game closes.");
 			BuildMenuTab = config.Bind(MainSection, "Blueprints Tab", true, "Add a Blueprints tab to the hammer's build menu, after Favorites (Q/E or click to reach it). Off: blueprints are listed under Misc instead. Takes effect after restarting the game.");
+			CostPanel = config.Bind(MainSection, "Blueprint Materials Panel", true, "When a blueprint needs more materials than the build info's slots show, list all of them (icon, have / need, red when short) in a panel beside it.");
 			BindAll(config);
 		}
 		finally

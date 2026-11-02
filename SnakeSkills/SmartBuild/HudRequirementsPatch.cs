@@ -90,9 +90,16 @@ internal static class HudRequirementsPatch
 			// The amounts are already totals for every copy, so the multiplier stays 1.
 			InventoryGui.SetupRequirement(hud.m_requirementItems[i].transform, list[i].Item1, player, list[i].Item2, 0, 1);
 		}
-		if (ModConfig.FullCostList.Value && list.Count > 0)
+		int slots = hud.m_requirementItems.Length;
+		if (list.Count > slots && BlueprintCostPanel.Enabled)
 		{
-			description += "\n" + CostText(player, blueprint, copies, host, list, hud.m_requirementItems.Length);
+			// SnakeSkills: more materials than slots; all of them go in the panel beside the info.
+			BlueprintCostPanel.Show(hud, CostEntries(player, blueprint, copies, host, list));
+			description += "\n" + list.Count + " materials, all listed in the materials panel.";
+		}
+		else if (ModConfig.FullCostList.Value && list.Count > 0)
+		{
+			description += "\n" + CostText(player, blueprint, copies, host, list, slots);
 		}
 		hud.m_pieceDescription.text = description;
 	}
@@ -152,6 +159,42 @@ internal static class HudRequirementsPatch
 		_costAt = Time.time;
 		_costText = stringBuilder.ToString();
 		return _costText;
+	}
+
+	private static string _entriesKey;
+
+	private static float _entriesAt;
+
+	private static readonly List<BlueprintCostPanel.Entry> _entries = new List<BlueprintCostPanel.Entry>();
+
+	// SnakeSkills: the same numbers as CostText, for the material panel (same refresh interval).
+	private static List<BlueprintCostPanel.Entry> CostEntries(Player player, Blueprint blueprint, int copies, Piece host, List<(Piece.Requirement, bool)> list)
+	{
+		string key = blueprint.Name + "|" + copies + "|" + list.Count;
+		if (key == _entriesKey && Time.time - _entriesAt < CostTextInterval)
+		{
+			return _entries;
+		}
+		_entries.Clear();
+		Inventory inventory = player.GetInventory();
+		for (int i = 0; i < list.Count; i++)
+		{
+			Piece.Requirement req = list[i].Item1;
+			ItemDrop.ItemData.SharedData shared = req.m_resItem.m_itemData.m_shared;
+			int have = ((inventory != null) ? GameApi.CountItems(inventory, shared.m_name) : 0);
+			bool enough = list[i].Item2 || have >= req.m_amount || (host != null && Safe.Call(() => ProbeOne(player, host, req), fallback: true, "Player.HaveRequirements"));
+			_entries.Add(new BlueprintCostPanel.Entry
+			{
+				Icon = (shared.m_icons != null && shared.m_icons.Length > 0) ? shared.m_icons[0] : null,
+				Name = GameApi.Localize(shared.m_name),
+				Need = req.m_amount,
+				Have = have,
+				Enough = enough
+			});
+		}
+		_entriesKey = key;
+		_entriesAt = Time.time;
+		return _entries;
 	}
 
 	private static bool ProbeOne(Player player, Piece host, Piece.Requirement req)

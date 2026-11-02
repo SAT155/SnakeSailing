@@ -524,6 +524,7 @@ internal class Plugin : MonoBehaviour
 		{
 			GridPreview.Draw(Player.m_localPlayer);
 			BlueprintList.Draw(Player.m_localPlayer);
+			BlueprintCostPanel.Draw();
 		}
 		catch (Exception ex)
 		{
