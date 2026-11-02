@@ -205,6 +205,23 @@ internal static class Landscaping
 		}
 	}
 
+	// The camera zooms from ZInput's wheel value; hide it while our wheel modes use it (the brush
+	// and incline code read Unity's Input.mouseScrollDelta directly). Putting m_distance back after
+	// the camera had already moved (below) left a one-frame zoom stutter.
+	[HarmonyPatch(typeof(ZInput), nameof(ZInput.GetMouseScrollWheel))]
+	private static class NoWheelWhileSizing
+	{
+		private static bool Prefix(ref float __result)
+		{
+			if (AdjustingBrush)
+			{
+				__result = 0f;
+				return false;
+			}
+			return true;
+		}
+	}
+
 	[HarmonyPatch(typeof(GameCamera), nameof(GameCamera.UpdateCamera))]
 	private static class NoZoomWhileSizing
 	{
