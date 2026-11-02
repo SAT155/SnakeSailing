@@ -82,6 +82,8 @@ internal static class Landscaping
 	private static ConfigEntry<float> inclineAngle = null!;
 	private static ConfigEntry<Toggle> altBlueprints = null!;
 	private static ConfigEntry<float> blueprintMaxLength = null!;
+	private static ConfigEntry<Toggle> undoEnabled = null!;
+	private static ConfigEntry<int> undoSteps = null!;
 	private static ConfigEntry<int> raiseNoBenchLevel = null!;
 	private static ConfigEntry<float> raiseStoneReduction = null!;
 
@@ -122,6 +124,8 @@ internal static class Landscaping
 		ctrlIncline = mod.config(Section, "Ctrl Incline", Toggle.On, "If on, holding Ctrl with a hoe tool shows an incline starting at your feet and running the way you look; the mouse wheel sets its angle, and a click shapes the brush onto it (the sides blend into the ground). It follows you until your first Ctrl click, then stays put while Ctrl is held, so you can walk up it striking ahead. Ctrl doesn't crouch while the hoe's build mode is open.", synchronizedSetting: false);
 		inclineAngle = mod.config(Section, "Incline Angle", 15f, new ConfigDescription("The Ctrl incline's angle in degrees (negative goes down). Set with Ctrl + mouse wheel.", new AcceptableValueRange<float>(-45f, 45f)), synchronizedSetting: false);
 		altBlueprints = mod.config(Section, "Alt Ramp Blueprints", Toggle.On, "If on, holding Alt with a hoe tool plans ramps: Alt+click lays points, Alt+click the last point again saves it as a blueprint everyone with SnakeSkills sees, and Alt+click on a blueprint builds the part under the brush. Built parts turn green; the blueprint clears itself when it's all built. Backspace undoes a point, Alt+Backspace removes the blueprint under the brush (its maker or an admin).", synchronizedSetting: false);
+		undoEnabled = mod.config(Section, "Undo With Ctrl+Z", Toggle.On, "If on, Ctrl+Z in the hoe's build mode undoes your last hoe strike (strikes made while holding the button down count as one) and Ctrl+Y or Ctrl+Shift+Z redoes it. Undo puts the ground back as it was before your strike, including anything someone else changed on that spot since.", synchronizedSetting: false);
+		undoSteps = mod.config(Section, "Undo Steps", 30, new ConfigDescription("How many hoe strikes Ctrl+Z can go back.", new AcceptableValueRange<int>(1, 200)), synchronizedSetting: false);
 		blueprintMaxLength = mod.config(Section, "Ramp Blueprint Max Length", 120f, new ConfigDescription("Longest ramp blueprint (m).", new AcceptableValueRange<float>(10f, 300f)));
 		raiseNoBenchLevel = mod.config(Section, "Raise Without Workbench Level", 50, new ConfigDescription("Landscaping level from which Raise ground no longer needs a workbench nearby (it still costs stone). 101 = always needs one. Re-equip the hoe after reaching it.", new AcceptableValueRange<int>(0, 101)));
 		raiseStoneReduction = mod.config(Section, "Raise Stone Reduction", 0.5f, new ConfigDescription("Share of Raise ground's stone cost saved at Landscaping 100 (0.5 = half). Scales with the skill, never below 1 stone. Re-equip the hoe to update.", new AcceptableValueRange<float>(0f, 1f)));
@@ -155,6 +159,16 @@ internal static class Landscaping
 	internal static bool BlueprintsOn => Active && altBlueprints.Value == Toggle.On;
 
 	internal static float BlueprintMaxLength => blueprintMaxLength.Value;
+
+	// Saves the ground around a strike for Ctrl+Z (claims the zones first).
+	internal static void RecordUndo(Vector3 center, float radius)
+	{
+		if (Active && undoEnabled.Value == Toggle.On)
+		{
+			TerrainZones.Claim(center, radius);
+			TerrainUndo.Capture(center, radius);
+		}
+	}
 
 	// A hoe build piece that shapes terrain (level ground, raise, path, paved road), not Restore terrain.
 	internal static bool TerrainPieceInHand(Player player, out Piece? piece)
@@ -235,6 +249,11 @@ internal static class Landscaping
 			inclineAngle.Value = angle;
 		}
 		RampBlueprints.Update(player, altBlueprints.Value == Toggle.On, blueprintMaxLength.Value);
+		if (undoEnabled.Value == Toggle.On)
+		{
+			TerrainUndo.MaxSteps = undoSteps.Value;
+			TerrainUndo.Update(player);
+		}
 		Lines.End();
 
 		if (sizeWithWheel.Value == Toggle.Off)
@@ -358,6 +377,10 @@ internal static class Landscaping
 			if (ctrlIncline.Value == Toggle.On && !restore)
 			{
 				lines.Add("Hold Ctrl: incline from your feet, mouse wheel sets the angle");
+			}
+			if (undoEnabled.Value == Toggle.On)
+			{
+				lines.Add("Ctrl+Z: undo a strike, Ctrl+Y: redo");
 			}
 			if (altBlueprints.Value == Toggle.On && !restore)
 			{
@@ -501,6 +524,10 @@ internal static class Landscaping
 			}
 
 			TerrainZones.Claim(__instance.transform.position, Mathf.Max(radius, __instance.m_settings.GetRadius()));
+			if (undoEnabled.Value == Toggle.On)
+			{
+				TerrainUndo.Capture(__instance.transform.position, Mathf.Max(radius, __instance.m_settings.GetRadius()));
+			}
 			player.RaiseSkill("Landscaping");
 
 			// Vanilla Raise is left alone: it builds up on purpose. Level ground levels; path and paved

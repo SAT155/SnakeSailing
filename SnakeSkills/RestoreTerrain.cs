@@ -200,6 +200,7 @@ internal static class RestoreTerrain
 			float skill = Mathf.InverseLerp(unlockLevel.Value / 100f, 1f, __instance.GetSkillFactor("Landscaping"));
 			float volume = Mathf.Lerp(volumeAtUnlock.Value, volumeAt100.Value, skill);
 			float depth = Mathf.Lerp(depthAtUnlock.Value, depthAt100.Value, skill);
+			Landscaping.RecordUndo(pos, radius);
 			float moved = Restore(pos, radius, volume, depth, restorePaint.Value == Toggle.On);
 
 			piece.m_placeEffect?.Create(pos, Quaternion.identity, null, 1f, -1, default(ZDOID));

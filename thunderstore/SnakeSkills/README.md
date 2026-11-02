@@ -32,7 +32,8 @@ for the SnakeSquad server.
   sees, and Alt+click on the blueprint builds the part under your brush, at your brush size, paying
   stamina like any strike. Built parts turn green, the rest stays amber, and the blueprint clears
   itself once it's all built. Backspace undoes a point; Alt+Backspace removes the blueprint under
-  the brush (its maker or an admin).
+  the brush (its maker or an admin). **Ctrl+Z** undoes your last hoe strike (strikes made while
+  holding the button count as one, up to 30 back) and Ctrl+Y or Ctrl+Shift+Z redoes it.
   The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
   tool's description in the build menu lists these controls. The skill also limits how big a bump
   you can knock down (0.5 m at 0, 3 m at 100) and how far one level ground strike can dig or fill
