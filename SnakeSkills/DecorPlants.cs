@@ -153,6 +153,11 @@ internal static class DecorPlants
 			{
 				Object.DestroyImmediate(body);
 			}
+			// No colliders on the ghost: the placement ray must hit the ground, not the ghost's trunk.
+			foreach (Collider collider in ghost.GetComponentsInChildren<Collider>(true))
+			{
+				Object.DestroyImmediate(collider);
+			}
 
 			Piece piece = ghost.AddComponent<Piece>();
 			piece.m_name = Pretty(prefab.name);
@@ -173,6 +178,11 @@ internal static class DecorPlants
 			{
 				piece.m_icon = icon;
 			}
+			else if (SaplingIcon(prefab.name) is { } sapling)
+			{
+				// No render: the closest cultivator sapling's icon at least shows something tree-like.
+				piece.m_icon = sapling;
+			}
 			ghosts[ghost] = prefab.name;
 			ordered.Add(ghost);
 		}
@@ -180,6 +190,32 @@ internal static class DecorPlants
 		{
 			Log($"Decor plants: skipped {prefab.name}: {e.Message}");
 		}
+	}
+
+	private static Sprite? SaplingIcon(string prefabName)
+	{
+		GameObject? cultivator = ObjectDB.instance.GetItemPrefab("Cultivator");
+		PieceTable? table = cultivator != null ? cultivator.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces : null;
+		if (table == null)
+		{
+			return null;
+		}
+		string lower = prefabName.ToLowerInvariant();
+		Sprite? any = null;
+		foreach (GameObject go in table.m_pieces)
+		{
+			if (go == null || go.GetComponent<Piece>() is not { m_icon: { } icon } || !go.name.ToLowerInvariant().Contains("sapling"))
+			{
+				continue;
+			}
+			any ??= icon;
+			string kind = go.name.ToLowerInvariant().Replace("_sapling", "").Replace("sapling_", "");
+			if (kind.Length >= 3 && lower.Contains(kind.Substring(0, Mathf.Min(kind.Length, 4))))
+			{
+				return icon;
+			}
+		}
+		return any;
 	}
 
 	// "FirTree_small_dead" -> "Fir tree small dead".
@@ -227,7 +263,11 @@ internal static class DecorPlants
 				__instance.m_zanim.SetTrigger(__instance.GetRightItem()?.m_shared.m_attack?.m_attackAnimation ?? "attack");
 			}
 			GameObject? placed = Spawn(prefabName, pos, rot);
-			if (placed != null)
+			if (placed == null)
+			{
+				Log($"Decor plants: couldn't spawn {prefabName}");
+			}
+			else
 			{
 				piece.m_placeEffect?.Create(pos, rot, null, 1f, -1, default(ZDOID));
 				TerrainUndo.RecordPlant(placed, prefabName, pos, rot, __instance.NoCostCheat() ? 0 : wood);
@@ -237,11 +277,37 @@ internal static class DecorPlants
 	}
 }
 
+// Says in the log why a decor plant wasn't placed (the game shows the same reason on screen).
+[HarmonyPatch(typeof(Player), nameof(Player.TryPlacePiece))]
+internal static class DecorPlacementLog
+{
+	private static void Postfix(Player __instance, Piece piece, bool __result)
+	{
+		if (!__result && piece != null && __instance == Player.m_localPlayer && DecorPlants.IsDecor(piece.gameObject))
+		{
+			SnakeSkillsPlugin.Log($"Decor plants: {piece.gameObject.name} not placed ({__instance.m_placementStatus})");
+		}
+	}
+}
+
 // Renders a model to a small transparent sprite for the build menu (one-off, synchronous).
 internal static class IconRenderer
 {
 	private const int Layer = 31;
 	private const int Size = 128;
+
+	private static Color[] Shot(Camera cam, RenderTexture rt, Color background)
+	{
+		cam.backgroundColor = background;
+		cam.Render();
+		RenderTexture.active = rt;
+		Texture2D texture = new(Size, Size, TextureFormat.RGBA32, false);
+		texture.ReadPixels(new Rect(0, 0, Size, Size), 0, 0);
+		texture.Apply();
+		Color[] pixels = texture.GetPixels();
+		Object.Destroy(texture);
+		return pixels;
+	}
 
 	internal static Sprite? Render(GameObject model)
 	{
@@ -257,6 +323,12 @@ internal static class IconRenderer
 			foreach (Transform t in copy.GetComponentsInChildren<Transform>(true))
 			{
 				t.gameObject.layer = Layer;
+			}
+			// Far away and small on screen, an LOD group would cull the model or show its crudest
+			// level; show the best one.
+			foreach (LODGroup lod in copy.GetComponentsInChildren<LODGroup>(true))
+			{
+				lod.ForceLOD(0);
 			}
 			foreach (Renderer r in copy.GetComponentsInChildren<Renderer>())
 			{
@@ -301,14 +373,29 @@ internal static class IconRenderer
 			light.cullingMask = 1 << Layer;
 			lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
+			// Opaque shaders don't write a usable alpha, so render on black and on white: where the two
+			// agree it's the model, where they differ it's background.
 			rt = new RenderTexture(Size, Size, 24, RenderTextureFormat.ARGB32);
 			cam.targetTexture = rt;
-			cam.Render();
-			RenderTexture.active = rt;
-			Texture2D texture = new(Size, Size, TextureFormat.RGBA32, false);
-			texture.ReadPixels(new Rect(0, 0, Size, Size), 0, 0);
-			texture.Apply();
+			Color[] onBlack = Shot(cam, rt, Color.black);
+			Color[] onWhite = Shot(cam, rt, Color.white);
 			cam.targetTexture = null;
+			Color[] pixels = new Color[onBlack.Length];
+			bool any = false;
+			for (int i = 0; i < pixels.Length; i++)
+			{
+				Color b = onBlack[i], w = onWhite[i];
+				float alpha = Mathf.Clamp01(1f - ((w.r - b.r) + (w.g - b.g) + (w.b - b.b)) / 3f);
+				pixels[i] = alpha > 0.01f ? new Color(b.r / alpha, b.g / alpha, b.b / alpha, alpha) : Color.clear;
+				any |= alpha > 0.1f;
+			}
+			if (!any)
+			{
+				return null;
+			}
+			Texture2D texture = new(Size, Size, TextureFormat.RGBA32, false);
+			texture.SetPixels(pixels);
+			texture.Apply();
 			return Sprite.Create(texture, new Rect(0, 0, Size, Size), new Vector2(0.5f, 0.5f));
 		}
 		catch (Exception e)
