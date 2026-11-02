@@ -100,8 +100,13 @@
         <Compile Include="Fishing.cs"/>
         <Compile Include="Landscaping.cs"/>
         <Compile Include="RestoreTerrain.cs"/>
+        <Compile Include="RampTools.cs"/>
+        <Compile Include="TerrainUndo.cs"/>
+        <Compile Include="DecorPlants.cs"/>
         <Compile Include="Trinkets.cs"/>
         <Compile Include="EmberBlast.cs"/>
+        <!-- Smart hammer: SnakeHammer's SmartBuild port (decompiled, private; never publish). -->
+        <Compile Include="SmartBuild/*.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>

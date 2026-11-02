@@ -12,19 +12,37 @@ namespace SnakeSkills;
 
 // Landscaping: a skill for the vanilla hoe. Each hoe strike trains it; with skill the strike costs
 // less stamina and the brush can be made bigger (Left Alt + mouse wheel). Every level-ground,
-// path or paved-road strike also knocks down lone terrain bumps in its area, and with Shift held
-// eases slopes too steep for a cart. Shift doesn't sprint while the hoe's build mode is open.
+// path or paved-road strike also knocks down lone terrain bumps in its area. Since 1.14 plain and
+// Shift clicks are otherwise vanilla; Ctrl shapes an adjustable incline and Alt plans and builds
+// ramp blueprints (RampTools.cs). Shift doesn't sprint while the hoe's build mode is open.
 //
 // Terrain edits sync through each zone's TerrainComp ZDO, and only its owner's Save() reaches
 // other players. A non-owner's vanilla strike is sent to the owner as just the piece's prefab
 // hash, so a bigger brush would be lost: the strike claims every zone it touches first (any
 // client may), the same fix SnakeSmarterHoe uses. With the zones owned, the vanilla operation
 // runs here at once, and the bump/slope pass right after it works on the result.
-internal enum RampMode
+
+// What a plain hoe click does (1.14 default: vanilla).
+internal enum ClickMode
 {
+	Vanilla,
+	LevelToFeet,
+}
+
+// What a Shift click does with level ground or a path tool (1.14 default: vanilla). The other modes
+// are the 1.2-1.13 Shift ramps.
+internal enum ShiftMode
+{
+	Vanilla,
 	FromFeet,
 	Switchback,
 	Relax,
+}
+
+internal enum RaiseMode
+{
+	Vanilla,
+	Ramp,
 }
 
 internal enum RampStyle
@@ -53,16 +71,20 @@ internal static class Landscaping
 	private static ConfigEntry<float> bumpAtHundred = null!;
 	private static ConfigEntry<float> levelAtZero = null!;
 	private static ConfigEntry<float> levelAtHundred = null!;
-	private static ConfigEntry<Toggle> easePaths = null!;
-	private static ConfigEntry<Toggle> easeLevel = null!;
 	private static ConfigEntry<float> maxSlope = null!;
 	private static ConfigEntry<RampStyle> rampStyle = null!;
 	private static ConfigEntry<Toggle> sizeWithWheel = null!;
 	private static ConfigEntry<float> brushSize = null!;
-	private static ConfigEntry<Toggle> rampNeedsShift = null!;
-	private static ConfigEntry<RampMode> rampMode = null!;
-	private static ConfigEntry<Toggle> clickLevelsToFeet = null!;
-	private static ConfigEntry<Toggle> raiseRamps = null!;
+	private static ConfigEntry<ClickMode> plainClick = null!;
+	private static ConfigEntry<ShiftMode> shiftClick = null!;
+	private static ConfigEntry<RaiseMode> raiseClick = null!;
+	private static ConfigEntry<Toggle> ctrlIncline = null!;
+	private static ConfigEntry<float> inclineAngle = null!;
+	private static ConfigEntry<Toggle> altBlueprints = null!;
+	private static ConfigEntry<float> blueprintMaxLength = null!;
+	private static ConfigEntry<Toggle> undoEnabled = null!;
+	private static ConfigEntry<Toggle> roundEdges = null!;
+	private static ConfigEntry<int> undoSteps = null!;
 	private static ConfigEntry<int> raiseNoBenchLevel = null!;
 	private static ConfigEntry<float> raiseStoneReduction = null!;
 
@@ -95,16 +117,21 @@ internal static class Landscaping
 		bumpAtHundred = mod.config(Section, "Max Bump At Landscaping 100", 3f, new ConfigDescription("Tallest bump knocked down at Landscaping 100.", new AcceptableValueRange<float>(0.1f, 8f)));
 		levelAtZero = mod.config(Section, "Max Level Change At Landscaping 0", 1.5f, new ConfigDescription("How far (m) one level ground or Shift ramp strike can lower or raise a point at Landscaping 0.", new AcceptableValueRange<float>(0.25f, 16f)));
 		levelAtHundred = mod.config(Section, "Max Level Change At Landscaping 100", 8f, new ConfigDescription("How far one level ground or Shift ramp strike can lower or raise a point at Landscaping 100 (16 = no limit).", new AcceptableValueRange<float>(0.25f, 16f)));
-		easePaths = mod.config(Section, "Ease Slopes On Paths", Toggle.On, "If on, path and paved road strikes made while holding Shift even out terrain inside the brush that is steeper than Max Cart Slope, turning steps into a ramp a cart can take. Without Shift the strike is a normal one.");
-		easeLevel = mod.config(Section, "Ease Slopes On Level Ground", Toggle.On, "If on, level ground strikes made while holding Shift also ramp the edge of the flattened area down or up to the ground around it when it is steeper than Max Cart Slope. Without Shift level ground stays flat to the edge.");
 		maxSlope = mod.config(Section, "Max Cart Slope", 25f, new ConfigDescription("Steepest slope (degrees) the slope easing leaves between neighbouring terrain points.", new AcceptableValueRange<float>(5f, 45f)));
-		rampNeedsShift = mod.config(Section, "Ramp Only With Shift", Toggle.On, "If on, slope ramping only happens on strikes made while holding Shift. Off ramps on every level ground/path/paved strike (as in SnakeSkills 1.2 and 1.3).");
-		rampMode = mod.config(Section, "Shift Ramp Mode", RampMode.FromFeet, "FromFeet: the strike shapes the brush into a ramp that starts at your feet and runs toward the brush, rising or falling like the ground does there but never steeper than Max Cart Slope (on a steeper hill it cuts into it), and level across. Strike ahead while walking up or down to lay a continuous road. Switchback (1.5-1.9): a ramp along the ground's own slope, or across a too-steep hill toward where you look. Relax (1.2-1.4): only evens out steps steeper than Max Cart Slope between neighbouring points.");
-		clickLevelsToFeet = mod.config(Section, "Click Levels To Feet", Toggle.On, "If on, a level ground, path or paved road strike without Shift cuts and fills the brush to a level road at the height of your feet (Shift makes the sloped ramp). Off: the plain strike is vanilla's (level ground levels to where you click, paths only smooth).");
-		raiseRamps = mod.config(Section, "Raise Builds Ramps", Toggle.On, "If on, Raise ground builds a ramp instead of a mound: from your feet up toward the brush at Max Cart Slope, level across, only ever adding ground. Strike ahead while walking up it to keep climbing. Off: vanilla mound.");
+		// 1.14: new keys (not the old ones' names) so existing config files get the new vanilla defaults.
+		plainClick = mod.config(Section, "Click", ClickMode.Vanilla, "What a plain level ground, path or paved road click does. Vanilla: the game's own strike (plus bump flattening). LevelToFeet (1.11-1.13): cuts and fills the brush to a level road at the height of your feet.");
+		shiftClick = mod.config(Section, "Shift Click", ShiftMode.Vanilla, "What a level ground, path or paved road click with Shift held does. Vanilla: the same as a plain click. FromFeet (1.10-1.13): a cart ramp from your feet toward the brush. Switchback (1.5-1.9): a ramp along the ground's slope, or across a too-steep hill. Relax (1.2-1.4): only evens out steps steeper than Max Cart Slope.");
+		raiseClick = mod.config(Section, "Raise Click", RaiseMode.Vanilla, "What a plain Raise ground click does. Vanilla: the game's mound. Ramp (1.12-1.13): a ramp up from your feet toward the brush at Max Cart Slope.");
+		ctrlIncline = mod.config(Section, "Ctrl Incline", Toggle.On, "If on, holding Ctrl with a hoe tool shows an incline starting at your feet and running the way you look; the mouse wheel sets its angle, and a click shapes the brush onto it (the sides blend into the ground). It follows you until your first Ctrl click, then stays put while Ctrl is held, so you can walk up it striking ahead. Ctrl doesn't crouch while the hoe's build mode is open.", synchronizedSetting: false);
+		inclineAngle = mod.config(Section, "Incline Angle", 15f, new ConfigDescription("The Ctrl incline's angle in degrees (negative goes down). Set with Ctrl + mouse wheel.", new AcceptableValueRange<float>(-45f, 45f)), synchronizedSetting: false);
+		altBlueprints = mod.config(Section, "Alt Ramp Blueprints", Toggle.On, "If on, holding Alt with a hoe tool plans ramps: Alt+click lays points, Alt+click the last point again saves it as a blueprint everyone with SnakeSkills sees, and Alt+click on a blueprint builds the part under the brush. Built parts turn green; the blueprint clears itself when it's all built. Backspace undoes a point, Alt+Backspace removes the blueprint under the brush (its maker or an admin).", synchronizedSetting: false);
+		roundEdges = mod.config(Section, "Shift Rounds Edges", Toggle.On, "If on (and Shift Click is Vanilla), a level ground, path or paved road click with Shift bends the ground in the brush into a smooth curve along its slope, level side to side, instead of flattening it: one or two strikes at the top or bottom of a ramp turn the kink into a gentle bend.");
+		undoEnabled = mod.config(Section, "Undo With Ctrl+Z", Toggle.On, "If on, Ctrl+Z in the hoe's build mode undoes your last hoe strike (strikes made while holding the button down count as one) and Ctrl+Y or Ctrl+Shift+Z redoes it. Undo puts the ground back as it was before your strike, including anything someone else changed on that spot since.", synchronizedSetting: false);
+		undoSteps = mod.config(Section, "Undo Steps", 30, new ConfigDescription("How many hoe strikes Ctrl+Z can go back.", new AcceptableValueRange<int>(1, 200)), synchronizedSetting: false);
+		blueprintMaxLength = mod.config(Section, "Ramp Blueprint Max Length", 120f, new ConfigDescription("Longest ramp blueprint (m).", new AcceptableValueRange<float>(10f, 300f)));
 		raiseNoBenchLevel = mod.config(Section, "Raise Without Workbench Level", 50, new ConfigDescription("Landscaping level from which Raise ground no longer needs a workbench nearby (it still costs stone). 101 = always needs one. Re-equip the hoe after reaching it.", new AcceptableValueRange<int>(0, 101)));
 		raiseStoneReduction = mod.config(Section, "Raise Stone Reduction", 0.5f, new ConfigDescription("Share of Raise ground's stone cost saved at Landscaping 100 (0.5 = half). Scales with the skill, never below 1 stone. Re-equip the hoe to update.", new AcceptableValueRange<float>(0f, 1f)));
-		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a ramp may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
+		rampStyle = mod.config(Section, "Shift Ramp Style", RampStyle.Spread, "Which ground a Shift ramp (Shift Click not Vanilla) may move. Spread: cut the high side and fill the low side (best for paths along a hillside). Fill: only adds ground, so a ramp is built up against a cliff or step. Cut: only removes ground. Terrain can be raised or dug at most 8 m from how the world generated it. (1.4 used Fill, 1.2-1.3 Spread.)");
 
 		smarterHoeLoaded = Chainloader.PluginInfos.ContainsKey(SmarterHoeGUID);
 		if (smarterHoeLoaded)
@@ -127,8 +154,73 @@ internal static class Landscaping
 
 	internal static float BrushScale(Player player) => brushSize.Value <= 0f ? MaxScale(player) : Mathf.Clamp(brushSize.Value, 1f, MaxScale(player));
 
-	// Left Alt + wheel sizes the brush; the same scroll must not also zoom the camera or turn the piece.
-	private static bool AdjustingBrush => Active && sizeWithWheel.Value == Toggle.On && Player.m_localPlayer is { } player && HoeBuildMode(player) && Input.GetKey(KeyCode.LeftAlt);
+	// Left Alt + wheel sizes the brush and Ctrl + wheel sets the incline; the same scroll must not
+	// also zoom the camera or turn the piece.
+	private static bool AdjustingBrush => Active && Player.m_localPlayer is { } player && HoeBuildMode(player) && ((sizeWithWheel.Value == Toggle.On && Input.GetKey(KeyCode.LeftAlt)) || Incline.Held);
+
+	internal static bool BlueprintsOn => Active && altBlueprints.Value == Toggle.On;
+
+	internal static float BlueprintMaxLength => blueprintMaxLength.Value;
+
+	// Saves the ground around a strike for Ctrl+Z (claims the zones first).
+	internal static void RecordUndo(Vector3 center, float radius)
+	{
+		if (Active && undoEnabled.Value == Toggle.On)
+		{
+			TerrainZones.Claim(center, radius);
+			TerrainUndo.Capture(center, radius);
+		}
+	}
+
+	// A hoe build piece that shapes terrain (level ground, raise, path, paved road), not Restore terrain.
+	internal static bool TerrainPieceInHand(Player player, out Piece? piece)
+	{
+		piece = null;
+		if (!HoeBuildMode(player) || player.m_placementGhost == null || player.m_placementGhost.GetComponentInChildren<TerrainOp>(true) is not { } op)
+		{
+			return false;
+		}
+		TerrainOp.Settings s = op.m_settings;
+		piece = player.m_placementGhost.GetComponent<Piece>();
+		return piece != null && (s.m_level || s.m_raise || s.m_smooth || s.m_paintCleared);
+	}
+
+	// The brush radius a strike with this piece will have (vanilla radius times the brush size).
+	internal static float BrushRadius(Player player, Piece piece)
+	{
+		float radius = piece.GetComponentInChildren<TerrainOp>(true) is { } op ? op.m_settings.GetRadius() : 2f;
+		return Mathf.Max(0.5f, radius) * BrushScale(player);
+	}
+
+	// Ctrl crouches by default; with the incline on, it doesn't while the hoe's build mode is open.
+	[HarmonyPatch(typeof(Player), nameof(Player.SetControls))]
+	private static class NoCrouchForIncline
+	{
+		private static void Prefix(Player __instance, ref bool crouch)
+		{
+			if (crouch && Active && ctrlIncline.Value == Toggle.On && __instance == Player.m_localPlayer && HoeBuildMode(__instance) && Incline.CtrlDown)
+			{
+				crouch = false;
+			}
+		}
+	}
+
+	// The camera zooms from ZInput's wheel value; hide it while our wheel modes use it (the brush
+	// and incline code read Unity's Input.mouseScrollDelta directly). Putting m_distance back after
+	// the camera had already moved (below) left a one-frame zoom stutter.
+	[HarmonyPatch(typeof(ZInput), nameof(ZInput.GetMouseScrollWheel))]
+	private static class NoWheelWhileSizing
+	{
+		private static bool Prefix(ref float __result)
+		{
+			if (AdjustingBrush)
+			{
+				__result = 0f;
+				return false;
+			}
+			return true;
+		}
+	}
 
 	[HarmonyPatch(typeof(GameCamera), nameof(GameCamera.UpdateCamera))]
 	private static class NoZoomWhileSizing
@@ -160,16 +252,39 @@ internal static class Landscaping
 
 	internal static void Update()
 	{
-		if (!Active || sizeWithWheel.Value == Toggle.Off || Player.m_localPlayer is not { } player || !HoeBuildMode(player))
+		Lines.Begin();
+		if (!Active || Player.m_localPlayer is not { } player || !HoeBuildMode(player))
+		{
+			Incline.Reset();
+			Lines.End();
+			return;
+		}
+
+		float angle = inclineAngle.Value;
+		float radius = TerrainPieceInHand(player, out Piece? piece) && piece != null ? BrushRadius(player, piece) : 2f;
+		Incline.Update(player, ctrlIncline.Value == Toggle.On, ref angle, radius);
+		if (Mathf.Abs(angle - inclineAngle.Value) > 0.001f)
+		{
+			inclineAngle.Value = angle;
+		}
+		RampBlueprints.Update(player, altBlueprints.Value == Toggle.On, blueprintMaxLength.Value);
+		if (undoEnabled.Value == Toggle.On)
+		{
+			TerrainUndo.MaxSteps = undoSteps.Value;
+			TerrainUndo.Update(player);
+		}
+		Lines.End();
+
+		if (sizeWithWheel.Value == Toggle.Off)
 		{
 			return;
 		}
 
-		// Middle click: back to the default size (the biggest the skill allows, growing with it).
+		// Middle click: back to the standard (vanilla) size.
 		if (Input.GetMouseButtonDown(2))
 		{
-			brushSize.Value = 0f;
-			player.Message(MessageHud.MessageType.TopLeft, $"Hoe brush: reset to the biggest your skill allows ({MaxScale(player):0.0}x)");
+			brushSize.Value = 1f;
+			player.Message(MessageHud.MessageType.TopLeft, "Hoe brush: standard size (1.0x)");
 			return;
 		}
 
@@ -264,19 +379,35 @@ internal static class Landscaping
 			if (sizeWithWheel.Value == Toggle.On)
 			{
 				lines.Add("Left Alt + mouse wheel: brush size (bigger with Landscaping)");
-				lines.Add("Middle click: reset brush size");
+				lines.Add("Middle click: standard brush size");
 			}
-			if (s != null && !s.m_raise && clickLevelsToFeet.Value == Toggle.On && rampNeedsShift.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			if (s != null && !s.m_raise && plainClick.Value == ClickMode.LevelToFeet && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
 				lines.Add("Click: level road at your feet's height");
 			}
-			if (s != null && !s.m_raise && (s.m_level ? easeLevel.Value : easePaths.Value) == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			if (s != null && !s.m_raise && shiftClick.Value != ShiftMode.Vanilla && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
-				lines.Add(rampNeedsShift.Value == Toggle.On ? "Hold Shift: cart ramp from your feet to the brush" : "Shapes a cart ramp from your feet to the brush");
+				lines.Add("Hold Shift: cart ramp from your feet to the brush");
 			}
-			if (s != null && s.m_raise && raiseRamps.Value == Toggle.On)
+			if (s != null && !s.m_raise && shiftClick.Value == ShiftMode.Vanilla && roundEdges.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			{
+				lines.Add("Hold Shift: round off the top or bottom of a ramp");
+			}
+			if (s != null && s.m_raise && raiseClick.Value == RaiseMode.Ramp)
 			{
 				lines.Add("Builds a cart ramp up from your feet toward the brush");
+			}
+			if (ctrlIncline.Value == Toggle.On && !restore)
+			{
+				lines.Add("Hold Ctrl: incline from your feet, mouse wheel sets the angle");
+			}
+			if (undoEnabled.Value == Toggle.On)
+			{
+				lines.Add("Ctrl+Z: undo a strike, Ctrl+Y: redo");
+			}
+			if (altBlueprints.Value == Toggle.On && !restore)
+			{
+				lines.Add("Hold Alt: click to plan a ramp, click the last point to save, click on a plan to build it");
 			}
 			if (s != null && !s.m_raise && flattenBumps.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
@@ -371,22 +502,34 @@ internal static class Landscaping
 
 			TerrainOp.Settings s = __instance.m_settings;
 			float scale = BrushScale(player);
-			bool raiseRamp = s.m_raise && raiseRamps.Value == Toggle.On;
-			if (scale > 1.001f || raiseRamp)
+			bool isRaise = s.m_raise;
+			bool isLevel = s.m_level && !s.m_raise;
+			bool isPath = !s.m_level && !s.m_raise && (s.m_smooth || s.m_paintCleared);
+
+			// Strikes whose heights come from us instead of vanilla's level/raise/smooth: an Alt strike on
+			// a ramp blueprint, a Ctrl incline strike, or Raise as a ramp.
+			RampBlueprints.Plan? plan = altBlueprints.Value == Toggle.On ? RampBlueprints.Building : null;
+			bool incline = plan == null && ctrlIncline.Value == Toggle.On && Incline.Held && (isRaise || isLevel || isPath);
+			bool raiseRamp = plan == null && !incline && isRaise && raiseClick.Value == RaiseMode.Ramp;
+			bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+			bool round = plan == null && !incline && shiftDown && shiftClick.Value == ShiftMode.Vanilla && roundEdges.Value == Toggle.On && (isLevel || isPath);
+			bool own = plan != null || incline || raiseRamp || round;
+			float radius = (isLevel ? s.m_levelRadius : isRaise ? s.m_raiseRadius : Mathf.Max(s.m_smooth ? s.m_smoothRadius : 0f, s.m_paintRadius)) * scale;
+			if (scale > 1.001f || own)
 			{
 				// A copy: the instance's settings object may be shared with the prefab's.
 				__instance.m_settings = new TerrainOp.Settings
 				{
 					m_levelOffset = s.m_levelOffset,
-					m_level = s.m_level,
+					m_level = s.m_level && !own,
 					m_levelRadius = s.m_levelRadius * scale,
 					m_square = s.m_square,
-					// A ramp replaces the mound; the strike still paints and claims the zones.
-					m_raise = s.m_raise && !raiseRamp,
+					// Our shape replaces vanilla's; the strike still paints.
+					m_raise = s.m_raise && !own,
 					m_raiseRadius = s.m_raiseRadius * scale,
 					m_raiseDelta = s.m_raiseDelta,
 					m_raisePower = s.m_raisePower,
-					m_smooth = s.m_smooth,
+					m_smooth = s.m_smooth && !own,
 					m_smoothRadius = s.m_smoothRadius * scale,
 					m_smoothPower = s.m_smoothPower,
 					m_paintCleared = s.m_paintCleared,
@@ -403,60 +546,73 @@ internal static class Landscaping
 					m_pointMultiplicationFactor = s.m_pointMultiplicationFactor,
 					m_halfOffset = s.m_halfOffset,
 				};
-				s = __instance.m_settings;
 			}
 
-			float radius = s.GetRadius();
-			TerrainZones.Claim(__instance.transform.position, radius);
+			TerrainZones.Claim(__instance.transform.position, Mathf.Max(radius, __instance.m_settings.GetRadius()));
+			if (undoEnabled.Value == Toggle.On)
+			{
+				TerrainUndo.Capture(__instance.transform.position, Mathf.Max(radius, __instance.m_settings.GetRadius()));
+			}
 			player.RaiseSkill("Landscaping");
 
-			// Raise is left alone: it builds up on purpose. Level ground levels; path and paved road
-			// smooth or paint without raising.
+			// Vanilla Raise is left alone: it builds up on purpose. Level ground levels; path and paved
+			// road smooth or paint without raising.
 			__state = new Strike
 			{
 				center = __instance.transform.position,
-				radius = s.m_level ? s.m_levelRadius : Mathf.Max(s.m_smooth ? s.m_smoothRadius : 0f, s.m_paintRadius),
-				level = s.m_level && !s.m_raise,
-				path = !s.m_level && !s.m_raise && (s.m_smooth || s.m_paintCleared),
-				raise = s.m_raise || raiseRamp,
+				radius = radius,
+				level = isLevel,
+				path = isPath,
+				raise = isRaise,
 			};
-			if (raiseRamp)
-			{
-				__state.radius = s.m_raiseRadius;
-			}
 
 			if (skillLimits.Value == Toggle.On)
 			{
 				float skill = player.GetSkillFactor("Landscaping");
 				__state.maxBump = Mathf.Lerp(bumpAtZero.Value, bumpAtHundred.Value, skill);
-				if (__state.level || __state.path || raiseRamp)
+				if (isLevel || isPath || own)
 				{
 					__state.maxChange = Mathf.Lerp(levelAtZero.Value, levelAtHundred.Value, skill);
 					__state.before = TerrainZones.Deltas(__state.center, __state.radius);
 				}
 			}
 
-			// The ramp's slope is read from the ground before the strike changes it.
-			if (raiseRamp)
+			// A ramp's slope is read from the ground before the strike changes it.
+			RampStyle ownStyle = isRaise ? RampStyle.Fill : RampStyle.Spread;
+			if (plan != null)
+			{
+				__state.ramp = new TerrainZones.Ramp { style = ownStyle, at = plan.TargetAt };
+			}
+			else if (round)
+			{
+				// Shift: bend the ground into a smooth curve along its slope, level across.
+				__state.ramp = TerrainZones.PlanRound(__state.center, __state.radius);
+			}
+			else if (incline)
+			{
+				__state.ramp = Incline.RampAt(__state.center, inclineAngle.Value, ownStyle);
+			}
+			else if (raiseRamp)
 			{
 				__state.ramp = TerrainZones.UpRamp(player.transform.position, __state.center, maxSlope.Value, GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward);
 			}
-			else if (!WantsRamp(__state) && clickLevelsToFeet.Value == Toggle.On && (__state.level || __state.path))
+			else if (!ShiftRamp(__state) && plainClick.Value == ClickMode.LevelToFeet && (isLevel || isPath))
 			{
-				// A plain strike: a level road at the height of the player's feet.
+				// Level to feet: a level road at the height of the player's feet.
 				__state.ramp = new TerrainZones.Ramp { baseHeight = player.transform.position.y, dir = Vector2.right, slope = 0f, style = rampStyle.Value };
 			}
-			else if (WantsRamp(__state) && rampMode.Value != RampMode.Relax)
+			else if (ShiftRamp(__state) && shiftClick.Value != ShiftMode.Relax)
 			{
 				Vector3 facing = GameCamera.instance != null ? GameCamera.instance.transform.forward : player.transform.forward;
-				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value, rampMode.Value == RampMode.FromFeet ? player.transform.position : null);
+				__state.ramp = TerrainZones.PlanRamp(__state.center, __state.radius, maxSlope.Value, facing, rampStyle.Value, shiftClick.Value == ShiftMode.FromFeet ? player.transform.position : null);
 			}
 		}
 
-		private static bool WantsRamp(Strike strike)
+		// A Shift strike with level ground or a path tool, when Shift Click isn't vanilla.
+		private static bool ShiftRamp(Strike strike)
 		{
 			bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-			return (shift || rampNeedsShift.Value == Toggle.Off) && (strike.path ? easePaths.Value == Toggle.On : strike.level && easeLevel.Value == Toggle.On);
+			return shift && shiftClick.Value != ShiftMode.Vanilla && (strike.level || strike.path) && !Incline.Held && RampBlueprints.Building == null;
 		}
 
 		private static void Postfix(Strike? __state)
@@ -479,10 +635,8 @@ internal static class Landscaping
 				return;
 			}
 
-			bool bumps = flattenBumps.Value == Toggle.On;
-			// Ramping only on request by default: Shift (which no longer sprints with the hoe out).
-			bool ease = WantsRamp(__state);
-			bool relax = ease && rampMode.Value == RampMode.Relax;
+			bool bumps = flattenBumps.Value == Toggle.On && !__state.raise;
+			bool relax = ShiftRamp(__state) && shiftClick.Value == ShiftMode.Relax;
 			TerrainZones.Result result = default;
 			if (bumps || relax || __state.ramp != null || __state.before != null)
 			{
@@ -839,6 +993,8 @@ internal static class TerrainZones
 	// `dir` and level across it.
 	internal class Ramp
 	{
+		// Optional: target height (x) and weight (y, 0 = leave alone) at a world x, z, instead of a plane.
+		public Func<float, float, Vector2>? at;
 		public float baseHeight;
 		public Vector2 dir;
 		public float slope;
@@ -868,6 +1024,90 @@ internal static class TerrainZones
 	// With feet (FromFeet mode) the ramp instead runs from the player's feet toward the brush centre,
 	// at the ground's slope along that line clamped to the cart slope, so strikes ahead of a walking
 	// player join into one road whichever way they face.
+	// Shift rounding: fits the ground in the brush with a curve along its steepest direction,
+	// h(u) = a + b·u + c·u² (u = distance along the slope through the centre), ignoring the
+	// cross direction, so a ramp's top or bottom kink becomes a smooth bend and the ground is level
+	// across. Full strength in the middle half of the brush, fading out to the rim.
+	public static Ramp? PlanRound(Vector3 center, float radius)
+	{
+		List<(float dx, float dz, float h)> pts = new();
+		heightmaps.Clear();
+		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
+		foreach (Heightmap hmap in heightmaps)
+		{
+			Vector3 origin = hmap.transform.position;
+			int half = hmap.m_width / 2;
+			for (int y = 0; y <= hmap.m_width; y++)
+			{
+				float dz = origin.z + (y - half) * hmap.m_scale - center.z;
+				if (Mathf.Abs(dz) > radius)
+				{
+					continue;
+				}
+				for (int x = 0; x <= hmap.m_width; x++)
+				{
+					float dx = origin.x + (x - half) * hmap.m_scale - center.x;
+					if (dx * dx + dz * dz <= radius * radius)
+					{
+						pts.Add((dx, dz, origin.y + hmap.GetHeight(x, y)));
+					}
+				}
+			}
+		}
+		if (pts.Count < 8)
+		{
+			return null;
+		}
+
+		// Plane fit for the slope direction.
+		double n = pts.Count, sx = 0, sz = 0, sh = 0, sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
+		foreach ((float dx, float dz, float h) in pts)
+		{
+			sx += dx; sz += dz; sh += h; sxx += dx * dx; szz += dz * dz; sxz += dx * dz; sxh += dx * h; szh += dz * h;
+		}
+		double mx = sx / n, mz = sz / n, mh = sh / n;
+		double cxx = sxx / n - mx * mx, czz = szz / n - mz * mz, cxz = sxz / n - mx * mz, cxh = sxh / n - mx * mh, czh = szh / n - mz * mh;
+		double det = cxx * czz - cxz * cxz;
+		if (System.Math.Abs(det) < 1e-9)
+		{
+			return null;
+		}
+		Vector2 g = new((float)((cxh * czz - czh * cxz) / det), (float)((czh * cxx - cxh * cxz) / det));
+		Vector2 d = g.magnitude > 0.01f ? g.normalized : Vector2.right;
+
+		// Least squares for a + b·u + c·u².
+		double s0 = n, s1 = 0, s2 = 0, s3 = 0, s4 = 0, t0 = 0, t1 = 0, t2 = 0;
+		foreach ((float dx, float dz, float h) in pts)
+		{
+			double u = dx * d.x + dz * d.y, u2 = u * u;
+			s1 += u; s2 += u2; s3 += u2 * u; s4 += u2 * u2;
+			t0 += h; t1 += h * u; t2 += h * u2;
+		}
+		double D = Det3(s0, s1, s2, s1, s2, s3, s2, s3, s4);
+		if (System.Math.Abs(D) < 1e-9)
+		{
+			return null;
+		}
+		float a = (float)(Det3(t0, s1, s2, t1, s2, s3, t2, s3, s4) / D);
+		float b = (float)(Det3(s0, t0, s2, s1, t1, s3, s2, t2, s4) / D);
+		float c = (float)(Det3(s0, s1, t0, s1, s2, t1, s2, s3, t2) / D);
+		float cx = center.x, cz = center.z;
+		return new Ramp
+		{
+			style = RampStyle.Spread,
+			at = (x, z) =>
+			{
+				float dx = x - cx, dz = z - cz;
+				float u = dx * d.x + dz * d.y;
+				float dist = Mathf.Sqrt(dx * dx + dz * dz);
+				float weight = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius * 0.5f, radius, dist));
+				return new Vector2(a + b * u + c * u * u, weight);
+			},
+		};
+	}
+
+	private static double Det3(double a, double b, double c, double d, double e, double f, double g, double h, double i) => a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+
 	public static Ramp? PlanRamp(Vector3 center, float radius, float maxSlopeDegrees, Vector3 facing, RampStyle style, Vector3? feet)
 	{
 		heightmaps.Clear();
@@ -980,6 +1220,17 @@ internal static class TerrainZones
 			float dist = Mathf.Sqrt(dx * dx + dz * dz);
 			float weight = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius * 0.6f, radius, dist));
 			float target = ramp.baseHeight + ramp.slope * (ramp.dir.x * dx + ramp.dir.y * dz);
+			if (ramp.at != null)
+			{
+				// A blueprint: its own weight across the ramp; the strike's edge only trims it near the rim.
+				Vector2 tw = ramp.at(p.Key.Item1 * scale, p.Key.Item2 * scale);
+				if (tw.y <= 0f)
+				{
+					continue;
+				}
+				target = tw.x;
+				weight = tw.y * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius * 0.85f, radius, dist)));
+			}
 			float moved = Mathf.Lerp(p.Value.height, target, weight);
 			p.Value.height = ramp.style switch
 			{

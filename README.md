@@ -53,6 +53,18 @@ git history).
   shown from Landscaping 25 (`PieceTable.UpdateAvailable` known recipes). `Player.PlacePiece` is
   intercepted for it (stamina, durability, animation done by hand) and it moves `TerrainComp`
   level deltas toward 0 within a per-strike volume and depth limit with soft falloff.
+- **Smart hammer (`SnakeSkills/SmartBuild/`, 1.19)**: the SnakeHammer repo's source (a
+  **private, decompiled fork of codepeople's SmartBuild 1.21.0: never publish or redistribute
+  SnakeSkills builds that contain it**), namespace `SnakeSkills.SmartBuild`. Changes from
+  SnakeHammer: no Jotunn. The Smart Hammer item is gone; `SmartHammer.Equipped` = vanilla
+  `Hammer` in hand + smart mode on (hotkey, default N), and every SmartBuild patch already gated
+  on it. Blueprint stubs go into the vanilla hammer's table (Misc) only while smart mode is on.
+  `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
+  `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
+  saves blueprints. SmartBuild's former plugin class is a component on SnakeSkills' object and
+  patches its own classes (`SnakeSkillsPlugin` skips that namespace); with
+  `com.codepeople.smartbuild` loaded none of it runs. Config: SmartBuild sections prefixed
+  `Smart Hammer - `, bound unsynced, imported once from `com.codepeople.smartbuild.cfg`.
 - `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
 - Upstream's hard block on Valheim Plus is a warning instead.
 
