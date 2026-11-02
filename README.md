@@ -61,7 +61,7 @@ git history).
   on it. Blueprint stubs go into the vanilla hammer's table (Misc) only while smart mode is on.
   `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
   `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
-  saves blueprints. SmartBuild's former plugin class is a component on SnakeSkills' object and
+  saves blueprints; 1.21 adds pictures (`BlueprintThumbnails.cs`: the stub cloned 5 km below the world on a spare layer for one frame, a disabled camera + light that only see that layer, `Camera.Render` into a RenderTexture, `ReadPixels`). SmartBuild's former plugin class is a component on SnakeSkills' object and
   patches its own classes (`SnakeSkillsPlugin` skips that namespace); with
   `com.codepeople.smartbuild` loaded none of it runs. Config: SmartBuild sections prefixed
   `Smart Hammer - `, bound unsynced, imported once from `com.codepeople.smartbuild.cfg`.

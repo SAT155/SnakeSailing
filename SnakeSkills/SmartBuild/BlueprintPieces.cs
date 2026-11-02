@@ -82,6 +82,7 @@ internal static class BlueprintPieces
 			// smart mode is on (SmartHammer.Sync), and in the blueprint list.
 			gameObject.GetComponent<Piece>().m_category = Piece.PieceCategory.Misc;
 			StubsByName[blueprint.Name] = gameObject;
+			BlueprintThumbnails.Forget(blueprint.Name);
 			BlueprintsByPrefabName[text] = blueprint;
 			Version++;
 			Plugin.Log.LogInfo("Registered blueprint piece '" + text + "' for '" + blueprint.Name + "' (version " + Version + ", " + StubsByName.Count + " stub(s) known)");
@@ -102,6 +103,7 @@ internal static class BlueprintPieces
 				return;
 			}
 			StubsByName.Remove(name);
+			BlueprintThumbnails.Forget(name);
 			if (!(value == null))
 			{
 				string name2 = value.name;

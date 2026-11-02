@@ -29,6 +29,8 @@ internal static class BlueprintList
 
 	private static GUIStyle _titleStyle;
 
+	private static GUIStyle _pictureStyle;
+
 	private static GUIStyle _smallStyle;
 
 	public static bool IsOpen => _open;
@@ -69,8 +71,8 @@ internal static class BlueprintList
 			return;
 		}
 		EnsureStyles();
-		float width = Mathf.Min(560f, Screen.width - 40f);
-		float height = Mathf.Min(620f, Screen.height - 80f);
+		float width = Mathf.Min(620f, Screen.width - 40f);
+		float height = Mathf.Min(720f, Screen.height - 80f);
 		Rect rect = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f, width, height);
 		GUI.Box(rect, GUIContent.none);
 		GUI.Box(rect, GUIContent.none);
@@ -108,12 +110,22 @@ internal static class BlueprintList
 		{
 			GUILayout.BeginHorizontal();
 			string label = blueprint.Name + "   <color=#bbbbbb>" + blueprint.Items.Count + (blueprint.Items.Count == 1 ? " piece" : " pieces") + "</color>";
-			if (GUILayout.Button(label, _rowStyle, GUILayout.Height(30f)))
+			bool pictures = ModConfig.ListThumbnails.Value;
+			float rowHeight = pictures ? 64f : 30f;
+			if (pictures)
+			{
+				Texture2D picture = BlueprintThumbnails.Get(blueprint.Name);
+				if (picture != null ? GUILayout.Button(picture, _pictureStyle, GUILayout.Width(64f), GUILayout.Height(64f)) : GUILayout.Button("...", _pictureStyle, GUILayout.Width(64f), GUILayout.Height(64f)))
+				{
+					pick = blueprint;
+				}
+			}
+			if (GUILayout.Button(label, _rowStyle, GUILayout.Height(rowHeight)))
 			{
 				pick = blueprint;
 			}
 			bool confirming = _confirmDelete == blueprint.Name;
-			if (GUILayout.Button(confirming ? "Sure?" : "Delete", GUILayout.Width(64f), GUILayout.Height(30f)))
+			if (GUILayout.Button(confirming ? "Sure?" : "Delete", GUILayout.Width(64f), GUILayout.Height(rowHeight)))
 			{
 				if (confirming)
 				{
@@ -229,6 +241,11 @@ internal static class BlueprintList
 			alignment = TextAnchor.MiddleLeft,
 			richText = true,
 			fontSize = 15
+		};
+		_pictureStyle = new GUIStyle(GUI.skin.button)
+		{
+			padding = new RectOffset(2, 2, 2, 2),
+			margin = new RectOffset(0, 4, 2, 2)
 		};
 		_titleStyle = new GUIStyle(GUI.skin.label)
 		{

@@ -70,7 +70,7 @@ for the SnakeSquad server.
 - **Smart hammer** (vanilla hammer, SnakeHammer built in): with the hammer out in build mode,
   press **N** to switch smart mode on or off. Off, the hammer is completely vanilla. On, you get
   SnakeHammer's (SmartBuild's) grids, Hold, nudging and the **K** panel, with the same keys as
-  before. Press **Y** for the **blueprint list**: click a name to build it, type to search,
+  before. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
   delete with a second click to confirm. To make a blueprint, aim at built pieces and press **F**
   (Shift+F: the whole group they were built with, Alt+F: everything connected) or use the **J**
   box, then press **Save selection** in the list (or Ctrl+S) and name it. Saved blueprints also

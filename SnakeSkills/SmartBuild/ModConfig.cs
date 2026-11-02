@@ -18,6 +18,8 @@ internal static class ModConfig
 
 	public static ConfigEntry<KeyCode> KeyBlueprintList;
 
+	public static ConfigEntry<bool> ListThumbnails;
+
 	// SnakeSkills: every SmartBuild section is shown as "Smart Hammer - <section>". The first time
 	// they appear in SnakeSkills' config, values come over from SmartBuild's/SnakeHammer's .cfg.
 	private const string SectionPrefix = "Smart Hammer - ";
@@ -157,6 +159,7 @@ internal static class ModConfig
 			Enabled = config.Bind(MainSection, "Smart Hammer", SnakeSkillsPlugin.Toggle.On, "SmartBuild (grids, blueprints, Hold, the K panel) on the vanilla hammer, while smart mode is on. Off: the hammer is always vanilla. Stays off by itself while SmartBuild or SnakeHammer is installed.");
 			KeySmartMode = config.Bind(MainSection, "Smart Mode Key", KeyCode.N, "With the hammer out in build mode, press to turn smart mode on or off. Off, the hammer is pure vanilla and none of the other smart hammer keys do anything.");
 			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints (turns smart mode on). Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's Misc tab while smart mode is on.");
+			ListThumbnails = config.Bind(MainSection, "Blueprint List Pictures", true, "Show a small picture of each blueprint in the blueprint list. They are drawn the first time the list opens (one per frame) and kept until the game closes.");
 			BindAll(config);
 		}
 		finally
