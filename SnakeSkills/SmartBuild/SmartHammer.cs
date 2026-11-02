@@ -7,7 +7,7 @@ namespace SnakeSkills.SmartBuild;
 
 /// <summary>
 /// SnakeSkills: SmartBuild runs on the vanilla hammer whenever it's out (1.17-1.20 had a smart
-/// mode toggle key; removed in 1.21). Upstream had its own Smart Hammer item (a Jotunn CustomItem
+/// mode toggle key; removed in 1.22). Upstream had its own Smart Hammer item (a Jotunn CustomItem
 /// with a copy of the hammer's piece table); here the saved blueprints are added to the vanilla
 /// hammer's table, and every SmartBuild patch checks <see cref="Equipped"/>.
 /// </summary>
@@ -38,7 +38,7 @@ internal static class SmartHammer
 	}
 
 	/// <summary>True while SmartBuild should act: the vanilla hammer is out (and the feature is on).
-	/// No separate mode: the user found a toggle key confusing (1.21).</summary>
+	/// No separate mode: the user found a toggle key confusing (1.22).</summary>
 	public static bool Equipped(Player player)
 	{
 		return Plugin.Active && HoldingHammer(player);
