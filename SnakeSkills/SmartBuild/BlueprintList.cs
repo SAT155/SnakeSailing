@@ -7,7 +7,7 @@ namespace SnakeSkills.SmartBuild;
 
 /// <summary>
 /// SnakeSkills: a plain list of the saved blueprints (Blueprint List Key, Y by default, with the
-/// hammer out). Click a name to build it, type to filter, save the current selection from here.
+/// hammer out in build mode). Click a name to build it, type to filter, save the current selection from here.
 /// Drawn with IMGUI from Plugin.OnGUI; the mouse is freed and player input blocked while open
 /// (the Panel*Patch classes check <see cref="IsOpen"/>).
 /// </summary>
@@ -186,7 +186,6 @@ internal static class BlueprintList
 	private static void Select(Player player, Blueprint blueprint)
 	{
 		Close();
-		SmartHammer.SetOn(player, on: true, announce: false);
 		Piece stub = BlueprintPieces.StubPiece(blueprint.Name);
 		if (stub == null)
 		{

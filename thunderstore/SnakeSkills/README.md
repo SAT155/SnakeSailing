@@ -67,14 +67,13 @@ for the SnakeSquad server.
   creatures, players or buildings. Costs half again the eitr of a fireball. Blasted rock trains
   Mining and gets Mining's ore bonus. Settings in *9 - Ember Blast*.
 
-- **Smart hammer** (vanilla hammer, SnakeHammer built in): with the hammer out in build mode,
-  press **N** to switch smart mode on or off. Off, the hammer is completely vanilla. On, you get
+- **Smart hammer** (vanilla hammer, SnakeHammer built in): the regular hammer has
   SnakeHammer's (SmartBuild's) grids, Hold, nudging and the **K** panel, with the same keys as
-  before. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
+  before; nothing changes until you use one of those keys. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
   delete with a second click to confirm. To make a blueprint, aim at built pieces and press **F**
   (Shift+F: the whole group they were built with, Alt+F: everything connected) or use the **J**
   box, then press **Save selection** in the list (or Ctrl+S) and name it. Saved blueprints also
-  sit in the hammer's Misc tab while smart mode is on. Blueprints and settings carry over from
+  sit in the hammer's Misc tab. Blueprints and settings carry over from
   SmartBuild/SnakeHammer (same `BepInEx/config/SmartBuild/Blueprints` folder; settings are
   copied once into the *Smart Hammer - ...* sections). **Remove SnakeHammer/SmartBuild**: while
   either is installed the smart hammer here stays off. Client side only; works with Valheim

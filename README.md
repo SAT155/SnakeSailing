@@ -57,8 +57,9 @@ git history).
   **private, decompiled fork of codepeople's SmartBuild 1.21.0: never publish or redistribute
   SnakeSkills builds that contain it**), namespace `SnakeSkills.SmartBuild`. Changes from
   SnakeHammer: no Jotunn. The Smart Hammer item is gone; `SmartHammer.Equipped` = vanilla
-  `Hammer` in hand + smart mode on (hotkey, default N), and every SmartBuild patch already gated
-  on it. Blueprint stubs go into the vanilla hammer's table (Misc) only while smart mode is on.
+  `Hammer` in hand (1.17-1.20 also needed a smart-mode hotkey; dropped in 1.21 at the user's
+  request), and every SmartBuild patch already gated on it. Blueprint stubs go into the vanilla
+  hammer's table (Misc).
   `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
   `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
   saves blueprints; 1.21 adds pictures (`BlueprintThumbnails.cs`: the stub cloned 5 km below the world on a spare layer for one frame, a disabled camera + light that only see that layer, `Camera.Render` into a RenderTexture, `ReadPixels`). SmartBuild's former plugin class is a component on SnakeSkills' object and

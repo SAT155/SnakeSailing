@@ -6,10 +6,10 @@ using UnityEngine;
 namespace SnakeSkills.SmartBuild;
 
 /// <summary>
-/// SnakeSkills: SmartBuild runs on the vanilla hammer while "smart mode" is on (a hotkey toggles
-/// it). Upstream had its own Smart Hammer item (a Jotunn CustomItem with a copy of the hammer's
-/// piece table); here the saved blueprints are added to the vanilla hammer's table (Misc tab)
-/// only while smart mode is on, and every SmartBuild patch checks <see cref="Equipped"/>.
+/// SnakeSkills: SmartBuild runs on the vanilla hammer whenever it's out (1.17-1.20 had a smart
+/// mode toggle key; removed in 1.21). Upstream had its own Smart Hammer item (a Jotunn CustomItem
+/// with a copy of the hammer's piece table); here the saved blueprints are added to the vanilla
+/// hammer's table, and every SmartBuild patch checks <see cref="Equipped"/>.
 /// </summary>
 internal static class SmartHammer
 {
@@ -20,9 +20,6 @@ internal static class SmartHammer
 	private static readonly List<GameObject> _added = new List<GameObject>();
 
 	private static int _syncedVersion = -1;
-
-	/// <summary>Smart mode, toggled by the hotkey. Off again after a restart.</summary>
-	public static bool On { get; private set; }
 
 	internal static PieceTable Table => _table;
 
@@ -40,37 +37,20 @@ internal static class SmartHammer
 		return rightItem.m_dropPrefab.name == HammerPrefab;
 	}
 
-	/// <summary>True while SmartBuild should act: the vanilla hammer is out and smart mode is on.</summary>
+	/// <summary>True while SmartBuild should act: the vanilla hammer is out (and the feature is on).
+	/// No separate mode: the user found a toggle key confusing (1.21).</summary>
 	public static bool Equipped(Player player)
 	{
-		return On && Plugin.Active && HoldingHammer(player);
+		return Plugin.Active && HoldingHammer(player);
 	}
 
-	public static void SetOn(Player player, bool on, bool announce = true)
-	{
-		if (On == on)
-		{
-			return;
-		}
-		On = on;
-		Sync();
-		if (announce && player != null)
-		{
-			string list = GridPreview.KeyName(ModConfig.KeyBlueprintList.Value);
-			string toggle = GridPreview.KeyName(ModConfig.KeySmartMode.Value);
-			GameApi.Message(player, on
-				? "Smart hammer ON: grids, blueprints (" + list + " for the list), " + GridPreview.KeyName(ModConfig.KeyPanel.Value) + " panel. " + toggle + " turns it off"
-				: "Smart hammer off: plain vanilla hammer. " + toggle + " turns it on");
-		}
-	}
-
-	/// <summary>Puts the blueprint stubs into the vanilla hammer's table while smart mode is on,
+	/// <summary>Puts the blueprint stubs into the vanilla hammer's table while the feature is on,
 	/// and takes them out again when it's off. Cheap when nothing changed.</summary>
 	internal static void Sync()
 	{
 		try
 		{
-			bool want = On && Plugin.Active;
+			bool want = Plugin.Active;
 			if (!want)
 			{
 				if (_added.Count > 0)

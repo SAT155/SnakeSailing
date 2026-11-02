@@ -14,8 +14,6 @@ internal static class ModConfig
 {
 	public static ConfigEntry<SnakeSkillsPlugin.Toggle> Enabled;
 
-	public static ConfigEntry<KeyCode> KeySmartMode;
-
 	public static ConfigEntry<KeyCode> KeyBlueprintList;
 
 	public static ConfigEntry<bool> ListThumbnails;
@@ -156,9 +154,8 @@ internal static class ModConfig
 		{
 			bool firstTime = !File.Exists(config.ConfigFilePath) || !File.ReadAllText(config.ConfigFilePath).Contains("[" + MainSection + "]");
 			_imported = firstTime ? ReadOldConfig() : null;
-			Enabled = config.Bind(MainSection, "Smart Hammer", SnakeSkillsPlugin.Toggle.On, "SmartBuild (grids, blueprints, Hold, the K panel) on the vanilla hammer, while smart mode is on. Off: the hammer is always vanilla. Stays off by itself while SmartBuild or SnakeHammer is installed.");
-			KeySmartMode = config.Bind(MainSection, "Smart Mode Key", KeyCode.N, "With the hammer out in build mode, press to turn smart mode on or off. Off, the hammer is pure vanilla and none of the other smart hammer keys do anything.");
-			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints (turns smart mode on). Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's Misc tab while smart mode is on.");
+			Enabled = config.Bind(MainSection, "Smart Hammer", SnakeSkillsPlugin.Toggle.On, "SmartBuild (grids, blueprints, Hold, the K panel) on the vanilla hammer. Off: the hammer is plain vanilla. Stays off by itself while SmartBuild or SnakeHammer is installed.");
+			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints. Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's build menu (Misc).");
 			ListThumbnails = config.Bind(MainSection, "Blueprint List Pictures", true, "Show a small picture of each blueprint in the blueprint list. They are drawn the first time the list opens (one per frame) and kept until the game closes.");
 			BindAll(config);
 		}

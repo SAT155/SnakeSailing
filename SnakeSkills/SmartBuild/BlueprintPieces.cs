@@ -79,7 +79,7 @@ internal static class BlueprintPieces
 			}
 			Decorate(gameObject, blueprint.Name, blueprint.Items.Count + ((blueprint.Items.Count == 1) ? " piece" : " pieces"), blueprint, player);
 			// SnakeSkills: no Jotunn "Blueprints" tab; the stubs go in the hammer's Misc tab while
-			// smart mode is on (SmartHammer.Sync), and in the blueprint list.
+			// the feature is on (SmartHammer.Sync), and in the blueprint list.
 			gameObject.GetComponent<Piece>().m_category = Piece.PieceCategory.Misc;
 			StubsByName[blueprint.Name] = gameObject;
 			BlueprintThumbnails.Forget(blueprint.Name);

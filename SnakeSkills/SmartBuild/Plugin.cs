@@ -190,19 +190,10 @@ internal class Plugin : MonoBehaviour
 		}
 	}
 
-	// SnakeSkills: the smart mode toggle and the blueprint list, on the vanilla hammer.
+	// SnakeSkills: the blueprint list key, on the vanilla hammer.
 	private void HandleModeKeys(Player player)
 	{
-		if (!Active)
-		{
-			if (SmartHammer.On)
-			{
-				SmartHammer.SetOn(player, on: false, announce: false);
-			}
-			BlueprintList.Close();
-			return;
-		}
-		if (player == null || !SmartHammer.HoldingHammer(player) || !player.InPlaceMode())
+		if (!Active || player == null || !SmartHammer.HoldingHammer(player) || !player.InPlaceMode())
 		{
 			BlueprintList.Close();
 			return;
@@ -220,13 +211,8 @@ internal class Plugin : MonoBehaviour
 		{
 			return;
 		}
-		if (Keys.Down(ModConfig.KeySmartMode.Value))
+		if (Keys.Down(ModConfig.KeyBlueprintList.Value))
 		{
-			SmartHammer.SetOn(player, !SmartHammer.On);
-		}
-		else if (Keys.Down(ModConfig.KeyBlueprintList.Value))
-		{
-			SmartHammer.SetOn(player, on: true, announce: false);
 			ControlPanel.Close();
 			BlueprintList.Open(player);
 		}
