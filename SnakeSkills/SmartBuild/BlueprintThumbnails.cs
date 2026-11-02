@@ -55,7 +55,8 @@ internal static class BlueprintThumbnails
 		Failed.Remove(name);
 	}
 
-	/// <summary>Renders at most one missing picture. Called every frame while the hammer is out.</summary>
+	/// <summary>Renders at most one missing picture. Called every frame while the blueprint list or
+	/// the build menu is open.</summary>
 	public static void Tick()
 	{
 		if (ModConfig.ListThumbnails == null || !ModConfig.ListThumbnails.Value)
@@ -176,7 +177,9 @@ internal static class BlueprintThumbnails
 			_camera.farClipPlane = distance + radius * 2f;
 			_light.transform.rotation = Quaternion.LookRotation(new Vector3(0.6f, -1f, 0.8f));
 			_camera.targetTexture = _target;
+			_light.enabled = true;
 			_camera.Render();
+			_light.enabled = false;
 			RenderTexture previous = RenderTexture.active;
 			RenderTexture.active = _target;
 			Texture2D texture = new Texture2D(Size, Size, TextureFormat.RGB24, mipChain: false);
@@ -187,7 +190,11 @@ internal static class BlueprintThumbnails
 		}
 		finally
 		{
-			UnityEngine.Object.Destroy(clone);
+			// 1.24: nothing of the photo rig outlives the render. 1.23 kept the camera and its
+			// directional light around, and the extra light upset the game's own lighting (black
+			// player, washed-out plants, blurry ground) and could end in a crash.
+			UnityEngine.Object.DestroyImmediate(clone);
+			DestroyRig();
 		}
 	}
 
@@ -213,8 +220,7 @@ internal static class BlueprintThumbnails
 		if (_camera == null)
 		{
 			GameObject rig = new GameObject("SnakeSkills_BlueprintThumbnailCamera");
-			UnityEngine.Object.DontDestroyOnLoad(rig);
-			_camera = rig.AddComponent<Camera>();
+						_camera = rig.AddComponent<Camera>();
 			_camera.enabled = false;
 			_camera.cullingMask = 1 << _layer;
 			_camera.clearFlags = CameraClearFlags.SolidColor;
@@ -230,6 +236,18 @@ internal static class BlueprintThumbnails
 			_light.color = new Color(1f, 0.96f, 0.9f);
 			_light.cullingMask = 1 << _layer;
 			_light.shadows = LightShadows.None;
+			_light.enabled = false;
 		}
+	}
+
+	private static void DestroyRig()
+	{
+		if (_camera != null)
+		{
+			_camera.targetTexture = null;
+			UnityEngine.Object.DestroyImmediate(_camera.gameObject);
+		}
+		_camera = null;
+		_light = null;
 	}
 }

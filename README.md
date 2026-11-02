@@ -64,7 +64,10 @@ git history).
   appended to `BuildUi.m_pieceLists` and `TabHandler.m_tabs`, refilled with the stubs before
   `UpdatePieceButtons`; the stubs are filtered out of `ByUsagePieceList`/`ByMaterialPieceList`,
   and each blueprint's picture becomes its icon. 1.24: `BlueprintCostPanel.cs` (IMGUI) lists every material when there are more than
-  `Hud.m_requirementItems` slots, placed from the info panel's RectTransforms' screen corners.
+  `Hud.m_requirementItems` slots, placed from the info panel's RectTransforms' screen corners. Also 1.24: the thumbnail camera
+  and directional light are created per render and destroyed right after (1.23 kept them alive
+  and the user saw broken scene lighting, then a crash), and pictures are only drawn while the
+  list or build menu is open.
   `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
   `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
   saves blueprints; 1.22 adds pictures (`BlueprintThumbnails.cs`: the stub cloned 5 km below the world on a spare layer for one frame, a disabled camera + light that only see that layer, `Camera.Render` into a RenderTexture, `ReadPixels`). SmartBuild's former plugin class is a component on SnakeSkills' object and

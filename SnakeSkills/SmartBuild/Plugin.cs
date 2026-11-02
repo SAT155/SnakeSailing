@@ -198,7 +198,10 @@ internal class Plugin : MonoBehaviour
 			BlueprintList.Close();
 			return;
 		}
-		BlueprintThumbnails.Tick();
+		if (BlueprintList.IsOpen || (Hud.instance != null && Hud.instance.m_buildUi != null && Hud.instance.m_buildUi.gameObject.activeSelf))
+		{
+			BlueprintThumbnails.Tick();
+		}
 		if (BlueprintList.IsOpen)
 		{
 			if (Keys.Down(KeyCode.Escape) || (!BlueprintList.Typing && Keys.Down(ModConfig.KeyBlueprintList.Value)))
