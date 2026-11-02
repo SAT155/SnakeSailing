@@ -111,9 +111,9 @@ internal static class ControlPanel
 	{
 		get
 		{
-			foreach (InputField field in _fields)
+			foreach (InputField fieldItem in _fields)
 			{
-				if (field != null && field.isFocused)
+				if (fieldItem != null && fieldItem.isFocused)
 				{
 					return true;
 				}
@@ -244,11 +244,11 @@ internal static class ControlPanel
 		}
 	}
 
-	private static void SyncField(InputField field, string value)
+	private static void SyncField(InputField fieldItem, string value)
 	{
-		if (!(field == null) && !field.isFocused && !(field.text == value))
+		if (!(fieldItem == null) && !fieldItem.isFocused && !(fieldItem.text == value))
 		{
-			field.SetTextWithoutNotify(value);
+			fieldItem.SetTextWithoutNotify(value);
 		}
 	}
 

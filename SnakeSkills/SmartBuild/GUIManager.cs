@@ -291,23 +291,23 @@ internal sealed class GUIManager
 		LoadAssets();
 		GameObject go = DefaultControls.CreateInputField(_resources);
 		go.transform.SetParent(parent, worldPositionStays: false);
-		InputField field = go.GetComponent<InputField>();
-		if (field.targetGraphic is Image image)
+		InputField fieldItem = go.GetComponent<InputField>();
+		if (fieldItem.targetGraphic is Image image)
 		{
 			image.color = Color.white;
 		}
-		if (field.placeholder is Text placeholder)
+		if (fieldItem.placeholder is Text placeholder)
 		{
 			placeholder.font = AveriaSerifBold;
 			placeholder.color = Color.grey;
 			placeholder.fontSize = fontSize;
 			placeholder.text = placeholderText ?? "";
 		}
-		if (field.textComponent != null)
+		if (fieldItem.textComponent != null)
 		{
-			ApplyTextStyle(field.textComponent, AveriaSerifBold, Color.white, fontSize);
+			ApplyTextStyle(fieldItem.textComponent, AveriaSerifBold, Color.white, fontSize);
 		}
-		field.contentType = contentType;
+		fieldItem.contentType = contentType;
 		RectTransform rect = (RectTransform)go.transform;
 		rect.anchorMin = anchorMin;
 		rect.anchorMax = anchorMax;
