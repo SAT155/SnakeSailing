@@ -237,7 +237,54 @@ internal static class DecorPlants
 		{
 			view.m_persistent = true;
 		}
-		return Object.Instantiate(prefab, pos, rot);
+		GameObject placed = Object.Instantiate(prefab, pos, rot);
+		if (placed.GetComponent<ZNetView>() is { } nview && nview.GetZDO() is { } zdo)
+		{
+			zdo.Set(DecorKey, true);
+			MakePiece(placed);
+		}
+		return placed;
+	}
+
+	// Plants planted with the hoe are marked in their ZDO and get a Piece (for players with the mod)
+	// every time they load: the hammer can then remove them (refunding a tree's wood) and building
+	// tools that work on pieces, like Valheim Plus's Advanced Editing Mode, can pick them up. Plants
+	// the world grew stay plain plants.
+	internal static readonly int DecorKey = "SnakeSkills_DecorPlant".GetStableHashCode();
+
+	private static void MakePiece(GameObject go)
+	{
+		if (go.GetComponent<Piece>() != null)
+		{
+			return;
+		}
+		string prefabName = Utils.GetPrefabName(go);
+		Piece piece = go.AddComponent<Piece>();
+		piece.m_name = Pretty(prefabName);
+		piece.m_canBeRemoved = true;
+		piece.m_groundOnly = true;
+		foreach (KeyValuePair<GameObject, string> ghost in ghosts)
+		{
+			if (ghost.Value == prefabName && ghost.Key.GetComponent<Piece>() is { } source)
+			{
+				piece.m_icon = source.m_icon;
+				piece.m_resources = source.m_resources;
+				piece.m_placeEffect = source.m_placeEffect;
+				break;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(ZNetView), nameof(ZNetView.Awake))]
+	private static class DecorPiecesOnLoad
+	{
+		private static void Postfix(ZNetView __instance)
+		{
+			if (__instance.GetZDO() is { } zdo && zdo.GetBool(DecorKey) && Landscaping.Active)
+			{
+				MakePiece(__instance.gameObject);
+			}
+		}
 	}
 
 	[HarmonyPatch(typeof(Player), nameof(Player.PlacePiece))]
