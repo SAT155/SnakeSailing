@@ -280,11 +280,11 @@ internal static class Landscaping
 			return;
 		}
 
-		// Middle click: back to the default size (the biggest the skill allows, growing with it).
+		// Middle click: back to the standard (vanilla) size.
 		if (Input.GetMouseButtonDown(2))
 		{
-			brushSize.Value = 0f;
-			player.Message(MessageHud.MessageType.TopLeft, $"Hoe brush: reset to the biggest your skill allows ({MaxScale(player):0.0}x)");
+			brushSize.Value = 1f;
+			player.Message(MessageHud.MessageType.TopLeft, "Hoe brush: standard size (1.0x)");
 			return;
 		}
 
@@ -379,7 +379,7 @@ internal static class Landscaping
 			if (sizeWithWheel.Value == Toggle.On)
 			{
 				lines.Add("Left Alt + mouse wheel: brush size (bigger with Landscaping)");
-				lines.Add("Middle click: reset brush size");
+				lines.Add("Middle click: standard brush size");
 			}
 			if (s != null && !s.m_raise && plainClick.Value == ClickMode.LevelToFeet && (s.m_level || s.m_smooth || s.m_paintCleared))
 			{
