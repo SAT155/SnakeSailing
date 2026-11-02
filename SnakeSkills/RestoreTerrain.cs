@@ -173,22 +173,15 @@ internal static class RestoreTerrain
 				return false;
 			}
 
-			if (!__instance.NoCostCheat())
+			// Stamina and hoe wear are taken by the game after TryPlacePiece returns
+			// (Player.UpdatePlacement), even though PlacePiece is skipped (verified by decompile, 1.18).
+			if (!__instance.NoCostCheat() && !__instance.HaveStamina(__instance.GetBuildStamina()))
 			{
-				float stamina = __instance.GetBuildStamina();
-				if (!__instance.HaveStamina(stamina))
+				if (Hud.instance != null)
 				{
-					if (Hud.instance != null)
-					{
-						Hud.instance.StaminaBarEmptyFlash();
-					}
-					return false;
+					Hud.instance.StaminaBarEmptyFlash();
 				}
-				__instance.UseStamina(stamina);
-				if (__instance.GetRightItem() is { m_shared.m_useDurability: true } tool)
-				{
-					tool.m_durability = Mathf.Max(0f, tool.m_durability - tool.m_shared.m_useDurabilityDrain);
-				}
+				return false;
 			}
 
 			if (doAttack && __instance.m_zanim != null)
@@ -200,6 +193,7 @@ internal static class RestoreTerrain
 			float skill = Mathf.InverseLerp(unlockLevel.Value / 100f, 1f, __instance.GetSkillFactor("Landscaping"));
 			float volume = Mathf.Lerp(volumeAtUnlock.Value, volumeAt100.Value, skill);
 			float depth = Mathf.Lerp(depthAtUnlock.Value, depthAt100.Value, skill);
+			Landscaping.RecordUndo(pos, radius);
 			float moved = Restore(pos, radius, volume, depth, restorePaint.Value == Toggle.On);
 
 			piece.m_placeEffect?.Create(pos, Quaternion.identity, null, 1f, -1, default(ZDOID));

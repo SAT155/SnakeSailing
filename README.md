@@ -53,7 +53,7 @@ git history).
   shown from Landscaping 25 (`PieceTable.UpdateAvailable` known recipes). `Player.PlacePiece` is
   intercepted for it (stamina, durability, animation done by hand) and it moves `TerrainComp`
   level deltas toward 0 within a per-strike volume and depth limit with soft falloff.
-- **Smart hammer (`SnakeSkills/SmartBuild/`, 1.17)**: the SnakeHammer repo's source (a
+- **Smart hammer (`SnakeSkills/SmartBuild/`, 1.19)**: the SnakeHammer repo's source (a
   **private, decompiled fork of codepeople's SmartBuild 1.21.0: never publish or redistribute
   SnakeSkills builds that contain it**), namespace `SnakeSkills.SmartBuild`. Changes from
   SnakeHammer: no Jotunn. The Smart Hammer item is gone; `SmartHammer.Equipped` = vanilla
