@@ -26,6 +26,12 @@ internal static class TerrainUndo
 		public Vector3 center;
 		public float radius;
 		public float time;
+
+		// A planted decor plant instead of a terrain change.
+		public string? plant;
+		public GameObject? placed;
+		public Quaternion rotation;
+		public int wood;
 	}
 
 	private static readonly List<Step> undo = new();
@@ -101,6 +107,56 @@ internal static class TerrainUndo
 		}
 	}
 
+	// A decor plant was placed: Ctrl+Z removes it again (and gives the wood back).
+	internal static void RecordPlant(GameObject placed, string prefab, Vector3 pos, Quaternion rot, int wood)
+	{
+		undo.Add(new Step { center = pos, plant = prefab, placed = placed, rotation = rot, wood = wood, time = Time.time });
+		while (undo.Count > Mathf.Max(1, MaxSteps))
+		{
+			undo.RemoveAt(0);
+		}
+		redo.Clear();
+	}
+
+	private static bool ApplyPlant(Player player, Step step, bool undoing)
+	{
+		Inventory inventory = player.GetInventory();
+		if (undoing)
+		{
+			if (step.placed == null || step.placed.GetComponent<ZNetView>() is not { } view || !view.IsValid())
+			{
+				player.Message(MessageHud.MessageType.TopLeft, "That plant is already gone");
+				return false;
+			}
+			if (!view.IsOwner())
+			{
+				view.ClaimOwnership();
+			}
+			ZNetScene.instance.Destroy(step.placed);
+			step.placed = null;
+			if (step.wood > 0 && ObjectDB.instance.GetItemPrefab("Wood") is { } woodPrefab)
+			{
+				inventory.AddItem(woodPrefab.name, step.wood, 1, 0, 0L, "");
+			}
+			return true;
+		}
+		if (step.wood > 0 && inventory.CountItems("$item_wood") < step.wood)
+		{
+			player.Message(MessageHud.MessageType.TopLeft, $"Needs {step.wood} wood");
+			return false;
+		}
+		step.placed = DecorPlants.Spawn(step.plant!, step.center, step.rotation);
+		if (step.placed == null)
+		{
+			return false;
+		}
+		if (step.wood > 0)
+		{
+			inventory.RemoveItem("$item_wood", step.wood);
+		}
+		return true;
+	}
+
 	private static Vertex Read(TerrainComp comp, int i) => new()
 	{
 		level = comp.m_levelDelta[i],
@@ -137,6 +193,20 @@ internal static class TerrainUndo
 			return;
 		}
 		Step step = from[from.Count - 1];
+		if (step.plant != null)
+		{
+			if (ApplyPlant(player, step, from == undo))
+			{
+				from.RemoveAt(from.Count - 1);
+				to.Add(step);
+				player.Message(MessageHud.MessageType.TopLeft, from == undo ? "Took the plant back" : "Planted it again");
+			}
+			else if (from == undo && step.placed == null)
+			{
+				from.RemoveAt(from.Count - 1);
+			}
+			return;
+		}
 		from.RemoveAt(from.Count - 1);
 
 		TerrainZones.Claim(step.center, step.radius);

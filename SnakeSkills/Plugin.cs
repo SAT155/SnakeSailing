@@ -80,6 +80,7 @@ public class SnakeSkillsPlugin : BaseUnityPlugin
 		Fishing.Init(this);
 		Landscaping.Init(this);
 		RestoreTerrain.Init(this);
+		DecorPlants.Init(this);
 		Trinkets.Init(this);
 		EmberBlast.Init(this);
 

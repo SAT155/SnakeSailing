@@ -34,6 +34,13 @@ for the SnakeSquad server.
   itself once it's all built. Backspace undoes a point; Alt+Backspace removes the blueprint under
   the brush (its maker or an admin). **Ctrl+Z** undoes your last hoe strike (strikes made while
   holding the button count as one, up to 30 back) and Ctrl+Y or Ctrl+Shift+Z redoes it.
+  **Shift-click** with level ground or a path tool bends the ground under the brush into a smooth
+  curve along its slope, level side to side: on flat ground it flattens, and at the top or bottom of
+  a ramp it rounds off the kink (vanilla's flatten digs divots into slopes). Alt ramp plans ease in
+  and out over their first and last few metres. The hoe menu also lists the game's **trees and
+  decorative bushes** (none that give items other than wood or resin): placing one plants the real
+  thing, which everyone sees and can chop down. Trees cost 5 wood (*Tree Wood Cost*); Ctrl+Z
+  takes a plant back.
   The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
   tool's description in the build menu lists these controls. The skill also limits how big a bump
   you can knock down (0.5 m at 0, 3 m at 100) and how far one level ground strike can dig or fill

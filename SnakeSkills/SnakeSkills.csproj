@@ -102,6 +102,7 @@
         <Compile Include="RestoreTerrain.cs"/>
         <Compile Include="RampTools.cs"/>
         <Compile Include="TerrainUndo.cs"/>
+        <Compile Include="DecorPlants.cs"/>
         <Compile Include="Trinkets.cs"/>
         <Compile Include="EmberBlast.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>

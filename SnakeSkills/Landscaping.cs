@@ -83,6 +83,7 @@ internal static class Landscaping
 	private static ConfigEntry<Toggle> altBlueprints = null!;
 	private static ConfigEntry<float> blueprintMaxLength = null!;
 	private static ConfigEntry<Toggle> undoEnabled = null!;
+	private static ConfigEntry<Toggle> roundEdges = null!;
 	private static ConfigEntry<int> undoSteps = null!;
 	private static ConfigEntry<int> raiseNoBenchLevel = null!;
 	private static ConfigEntry<float> raiseStoneReduction = null!;
@@ -124,6 +125,7 @@ internal static class Landscaping
 		ctrlIncline = mod.config(Section, "Ctrl Incline", Toggle.On, "If on, holding Ctrl with a hoe tool shows an incline starting at your feet and running the way you look; the mouse wheel sets its angle, and a click shapes the brush onto it (the sides blend into the ground). It follows you until your first Ctrl click, then stays put while Ctrl is held, so you can walk up it striking ahead. Ctrl doesn't crouch while the hoe's build mode is open.", synchronizedSetting: false);
 		inclineAngle = mod.config(Section, "Incline Angle", 15f, new ConfigDescription("The Ctrl incline's angle in degrees (negative goes down). Set with Ctrl + mouse wheel.", new AcceptableValueRange<float>(-45f, 45f)), synchronizedSetting: false);
 		altBlueprints = mod.config(Section, "Alt Ramp Blueprints", Toggle.On, "If on, holding Alt with a hoe tool plans ramps: Alt+click lays points, Alt+click the last point again saves it as a blueprint everyone with SnakeSkills sees, and Alt+click on a blueprint builds the part under the brush. Built parts turn green; the blueprint clears itself when it's all built. Backspace undoes a point, Alt+Backspace removes the blueprint under the brush (its maker or an admin).", synchronizedSetting: false);
+		roundEdges = mod.config(Section, "Shift Rounds Edges", Toggle.On, "If on (and Shift Click is Vanilla), a level ground, path or paved road click with Shift bends the ground in the brush into a smooth curve along its slope, level side to side, instead of flattening it: one or two strikes at the top or bottom of a ramp turn the kink into a gentle bend.");
 		undoEnabled = mod.config(Section, "Undo With Ctrl+Z", Toggle.On, "If on, Ctrl+Z in the hoe's build mode undoes your last hoe strike (strikes made while holding the button down count as one) and Ctrl+Y or Ctrl+Shift+Z redoes it. Undo puts the ground back as it was before your strike, including anything someone else changed on that spot since.", synchronizedSetting: false);
 		undoSteps = mod.config(Section, "Undo Steps", 30, new ConfigDescription("How many hoe strikes Ctrl+Z can go back.", new AcceptableValueRange<int>(1, 200)), synchronizedSetting: false);
 		blueprintMaxLength = mod.config(Section, "Ramp Blueprint Max Length", 120f, new ConfigDescription("Longest ramp blueprint (m).", new AcceptableValueRange<float>(10f, 300f)));
@@ -370,6 +372,10 @@ internal static class Landscaping
 			{
 				lines.Add("Hold Shift: cart ramp from your feet to the brush");
 			}
+			if (s != null && !s.m_raise && shiftClick.Value == ShiftMode.Vanilla && roundEdges.Value == Toggle.On && (s.m_level || s.m_smooth || s.m_paintCleared))
+			{
+				lines.Add("Hold Shift: round off the top or bottom of a ramp");
+			}
 			if (s != null && s.m_raise && raiseClick.Value == RaiseMode.Ramp)
 			{
 				lines.Add("Builds a cart ramp up from your feet toward the brush");
@@ -488,7 +494,9 @@ internal static class Landscaping
 			RampBlueprints.Plan? plan = altBlueprints.Value == Toggle.On ? RampBlueprints.Building : null;
 			bool incline = plan == null && ctrlIncline.Value == Toggle.On && Incline.Held && (isRaise || isLevel || isPath);
 			bool raiseRamp = plan == null && !incline && isRaise && raiseClick.Value == RaiseMode.Ramp;
-			bool own = plan != null || incline || raiseRamp;
+			bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+			bool round = plan == null && !incline && shiftDown && shiftClick.Value == ShiftMode.Vanilla && roundEdges.Value == Toggle.On && (isLevel || isPath);
+			bool own = plan != null || incline || raiseRamp || round;
 			float radius = (isLevel ? s.m_levelRadius : isRaise ? s.m_raiseRadius : Mathf.Max(s.m_smooth ? s.m_smoothRadius : 0f, s.m_paintRadius)) * scale;
 			if (scale > 1.001f || own)
 			{
@@ -557,6 +565,11 @@ internal static class Landscaping
 			if (plan != null)
 			{
 				__state.ramp = new TerrainZones.Ramp { style = ownStyle, at = plan.TargetAt };
+			}
+			else if (round)
+			{
+				// Shift: bend the ground into a smooth curve along its slope, level across.
+				__state.ramp = TerrainZones.PlanRound(__state.center, __state.radius);
 			}
 			else if (incline)
 			{
@@ -994,6 +1007,90 @@ internal static class TerrainZones
 	// With feet (FromFeet mode) the ramp instead runs from the player's feet toward the brush centre,
 	// at the ground's slope along that line clamped to the cart slope, so strikes ahead of a walking
 	// player join into one road whichever way they face.
+	// Shift rounding: fits the ground in the brush with a curve along its steepest direction,
+	// h(u) = a + b·u + c·u² (u = distance along the slope through the centre), ignoring the
+	// cross direction, so a ramp's top or bottom kink becomes a smooth bend and the ground is level
+	// across. Full strength in the middle half of the brush, fading out to the rim.
+	public static Ramp? PlanRound(Vector3 center, float radius)
+	{
+		List<(float dx, float dz, float h)> pts = new();
+		heightmaps.Clear();
+		Heightmap.FindHeightmap(center, radius + 2f, heightmaps);
+		foreach (Heightmap hmap in heightmaps)
+		{
+			Vector3 origin = hmap.transform.position;
+			int half = hmap.m_width / 2;
+			for (int y = 0; y <= hmap.m_width; y++)
+			{
+				float dz = origin.z + (y - half) * hmap.m_scale - center.z;
+				if (Mathf.Abs(dz) > radius)
+				{
+					continue;
+				}
+				for (int x = 0; x <= hmap.m_width; x++)
+				{
+					float dx = origin.x + (x - half) * hmap.m_scale - center.x;
+					if (dx * dx + dz * dz <= radius * radius)
+					{
+						pts.Add((dx, dz, origin.y + hmap.GetHeight(x, y)));
+					}
+				}
+			}
+		}
+		if (pts.Count < 8)
+		{
+			return null;
+		}
+
+		// Plane fit for the slope direction.
+		double n = pts.Count, sx = 0, sz = 0, sh = 0, sxx = 0, szz = 0, sxz = 0, sxh = 0, szh = 0;
+		foreach ((float dx, float dz, float h) in pts)
+		{
+			sx += dx; sz += dz; sh += h; sxx += dx * dx; szz += dz * dz; sxz += dx * dz; sxh += dx * h; szh += dz * h;
+		}
+		double mx = sx / n, mz = sz / n, mh = sh / n;
+		double cxx = sxx / n - mx * mx, czz = szz / n - mz * mz, cxz = sxz / n - mx * mz, cxh = sxh / n - mx * mh, czh = szh / n - mz * mh;
+		double det = cxx * czz - cxz * cxz;
+		if (System.Math.Abs(det) < 1e-9)
+		{
+			return null;
+		}
+		Vector2 g = new((float)((cxh * czz - czh * cxz) / det), (float)((czh * cxx - cxh * cxz) / det));
+		Vector2 d = g.magnitude > 0.01f ? g.normalized : Vector2.right;
+
+		// Least squares for a + b·u + c·u².
+		double s0 = n, s1 = 0, s2 = 0, s3 = 0, s4 = 0, t0 = 0, t1 = 0, t2 = 0;
+		foreach ((float dx, float dz, float h) in pts)
+		{
+			double u = dx * d.x + dz * d.y, u2 = u * u;
+			s1 += u; s2 += u2; s3 += u2 * u; s4 += u2 * u2;
+			t0 += h; t1 += h * u; t2 += h * u2;
+		}
+		double D = Det3(s0, s1, s2, s1, s2, s3, s2, s3, s4);
+		if (System.Math.Abs(D) < 1e-9)
+		{
+			return null;
+		}
+		float a = (float)(Det3(t0, s1, s2, t1, s2, s3, t2, s3, s4) / D);
+		float b = (float)(Det3(s0, t0, s2, s1, t1, s3, s2, t2, s4) / D);
+		float c = (float)(Det3(s0, s1, t0, s1, s2, t1, s2, s3, t2) / D);
+		float cx = center.x, cz = center.z;
+		return new Ramp
+		{
+			style = RampStyle.Spread,
+			at = (x, z) =>
+			{
+				float dx = x - cx, dz = z - cz;
+				float u = dx * d.x + dz * d.y;
+				float dist = Mathf.Sqrt(dx * dx + dz * dz);
+				float weight = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(radius * 0.5f, radius, dist));
+				return new Vector2(a + b * u + c * u * u, weight);
+			},
+		};
+	}
+
+	private static double Det3(double a, double b, double c, double d, double e, double f, double g, double h, double i) => a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+
 	public static Ramp? PlanRamp(Vector3 center, float radius, float maxSlopeDegrees, Vector3 facing, RampStyle style, Vector3? feet)
 	{
 		heightmaps.Clear();

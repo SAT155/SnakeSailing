@@ -140,7 +140,7 @@ internal static class RampBlueprints
 		public (float dist, float height) Nearest(float x, float z)
 		{
 			Vector2 p = new(x, z);
-			float best = float.MaxValue, height = Points.Count > 0 ? Points[0].y : 0f;
+			float best = float.MaxValue, along = 0f, run = 0f;
 			for (int i = 1; i < Points.Count; i++)
 			{
 				Vector2 a = Flat(Points[i - 1]), b = Flat(Points[i]), ab = b - a;
@@ -149,10 +149,45 @@ internal static class RampBlueprints
 				if (d < best)
 				{
 					best = d;
-					height = Mathf.Lerp(Points[i - 1].y, Points[i].y, t);
+					along = run + t * ab.magnitude;
 				}
+				run += ab.magnitude;
 			}
-			return (best, height);
+			return (best, HeightAt(along));
+		}
+
+		// Planned height at a distance along the centre line. The ends ease in and out: the first and
+		// last few metres (up to 4 m, a quarter of the ramp at most) curve from level into the slope,
+		// so the ramp meets flat ground without a kink. Waypoint heights in between still hold.
+		public float HeightAt(float along)
+		{
+			float length = Length;
+			float ease = Mathf.Min(4f, length * 0.25f);
+			if (length > 0.01f && ease > 0.5f)
+			{
+				float e = ease / length, k = 1f / (1f - e), x = Mathf.Clamp01(along / length);
+				float f = x < e ? k * x * x / (2f * e) : x > 1f - e ? 1f - k * (1f - x) * (1f - x) / (2f * e) : k * (x - e * 0.5f);
+				along = f * length;
+			}
+			return LinearHeightAt(along);
+		}
+
+		private float LinearHeightAt(float along)
+		{
+			if (Points.Count == 0)
+			{
+				return 0f;
+			}
+			for (int i = 1; i < Points.Count; i++)
+			{
+				float seg = Flat(Points[i] - Points[i - 1]).magnitude;
+				if (along <= seg || i == Points.Count - 1)
+				{
+					return Mathf.Lerp(Points[i - 1].y, Points[i].y, seg > 0.0001f ? Mathf.Clamp01(along / seg) : 1f);
+				}
+				along -= seg;
+			}
+			return Points[Points.Count - 1].y;
 		}
 
 		public bool Contains(Vector3 point) => Nearest(point.x, point.z).dist <= HalfWidth + Margin;
@@ -460,7 +495,9 @@ internal static class RampBlueprints
 			int steps = Mathf.Max(1, Mathf.CeilToInt(Flat(b - a).magnitude));
 			for (int s = i == 1 ? 0 : 1; s <= steps; s++)
 			{
-				plan.Samples.Add(Vector3.Lerp(a, b, s / (float)steps));
+				Vector3 point = Vector3.Lerp(a, b, s / (float)steps);
+				point.y = plan.Nearest(point.x, point.z).height;
+				plan.Samples.Add(point);
 			}
 		}
 		plan.Built = new bool[plan.Samples.Count];
