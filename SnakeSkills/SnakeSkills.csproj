@@ -103,6 +103,8 @@
         <Compile Include="RampTools.cs"/>
         <Compile Include="Trinkets.cs"/>
         <Compile Include="EmberBlast.cs"/>
+        <!-- Smart hammer: SnakeHammer's SmartBuild port (decompiled, private; never publish). -->
+        <Compile Include="SmartBuild/*.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
