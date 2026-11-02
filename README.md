@@ -59,7 +59,11 @@ git history).
   SnakeHammer: no Jotunn. The Smart Hammer item is gone; `SmartHammer.Equipped` = vanilla
   `Hammer` in hand (1.17-1.20 also needed a smart-mode hotkey; dropped in 1.22 at the user's
   request), and every SmartBuild patch already gated on it. Blueprint stubs go into the vanilla
-  hammer's table (Misc).
+  hammer's table (Misc). 1.23: `BuildMenuTab.cs` adds a Blueprints tab to the game's own build
+  menu (`BuildUi`, Deep North): a copy of the last tab button, plus a vanilla `RecentPieceList`
+  appended to `BuildUi.m_pieceLists` and `TabHandler.m_tabs`, refilled with the stubs before
+  `UpdatePieceButtons`; the stubs are filtered out of `ByUsagePieceList`/`ByMaterialPieceList`,
+  and each blueprint's picture becomes its icon.
   `GUIManager.cs` stands in for Jotunn's (DefaultControls + the game's sprites/fonts);
   `BlueprintList.cs` (IMGUI, default Y) lists, picks (`Player.SetSelectedPiece`), deletes and
   saves blueprints; 1.22 adds pictures (`BlueprintThumbnails.cs`: the stub cloned 5 km below the world on a spare layer for one frame, a disabled camera + light that only see that layer, `Camera.Render` into a RenderTexture, `ReadPixels`). SmartBuild's former plugin class is a component on SnakeSkills' object and

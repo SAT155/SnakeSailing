@@ -73,7 +73,8 @@ for the SnakeSquad server.
   delete with a second click to confirm. To make a blueprint, aim at built pieces and press **F**
   (Shift+F: the whole group they were built with, Alt+F: everything connected) or use the **J**
   box, then press **Save selection** in the list (or Ctrl+S) and name it. Saved blueprints also
-  sit in the hammer's Misc tab. Blueprints and settings carry over from
+  get their own **Blueprints** tab in the build menu, after Favorites (Q/E or click), with
+  their pictures as icons. Blueprints and settings carry over from
   SmartBuild/SnakeHammer (same `BepInEx/config/SmartBuild/Blueprints` folder; settings are
   copied once into the *Smart Hammer - ...* sections). **Remove SnakeHammer/SmartBuild**: while
   either is installed the smart hammer here stays off. Client side only; works with Valheim

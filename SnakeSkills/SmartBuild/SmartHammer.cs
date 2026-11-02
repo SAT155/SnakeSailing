@@ -86,7 +86,7 @@ internal static class SmartHammer
 					_added.Add(stub);
 				}
 			}
-			Plugin.Log.LogInfo("Smart hammer: " + _added.Count + " blueprint(s) in the hammer's Misc tab (blueprint version " + _syncedVersion + ")");
+			Plugin.Log.LogInfo("Smart hammer: " + _added.Count + " blueprint(s) in the hammer's build menu (blueprint version " + _syncedVersion + ")");
 			RefreshAvailability();
 		}
 		catch (Exception ex)

@@ -22,6 +22,8 @@ internal static class BlueprintThumbnails
 
 	private static readonly Dictionary<string, Texture2D> Cache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
 
+	private static readonly Dictionary<string, Sprite> Sprites = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
+
 	private static readonly HashSet<string> Failed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 	private static Camera _camera;
@@ -45,10 +47,15 @@ internal static class BlueprintThumbnails
 			UnityEngine.Object.Destroy(texture);
 		}
 		Cache.Remove(name);
+		if (Sprites.TryGetValue(name, out Sprite sprite) && sprite != null)
+		{
+			UnityEngine.Object.Destroy(sprite);
+		}
+		Sprites.Remove(name);
 		Failed.Remove(name);
 	}
 
-	/// <summary>Renders at most one missing picture. Called every frame while the list is open.</summary>
+	/// <summary>Renders at most one missing picture. Called every frame while the hammer is out.</summary>
 	public static void Tick()
 	{
 		if (ModConfig.ListThumbnails == null || !ModConfig.ListThumbnails.Value)
@@ -73,12 +80,35 @@ internal static class BlueprintThumbnails
 			if (texture != null)
 			{
 				Cache[blueprint.Name] = texture;
+				UseAsIcon(blueprint.Name, texture);
 			}
 			else
 			{
 				Failed.Add(blueprint.Name);
 			}
 			return;
+		}
+	}
+
+	/// <summary>The picture also becomes the blueprint's icon in the build menu.</summary>
+	private static void UseAsIcon(string name, Texture2D texture)
+	{
+		try
+		{
+			Piece stub = BlueprintPieces.StubPiece(name);
+			if (stub == null)
+			{
+				return;
+			}
+			Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+			sprite.name = "SnakeSkills_Blueprint_" + name;
+			Sprites[name] = sprite;
+			stub.m_icon = sprite;
+			BuildMenuTab.RefreshIcon(stub);
+		}
+		catch (Exception ex)
+		{
+			Plugin.LogOnce("thumbnail-icon", "Could not use a blueprint picture as its icon: " + ex);
 		}
 	}
 

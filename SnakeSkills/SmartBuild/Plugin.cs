@@ -198,9 +198,9 @@ internal class Plugin : MonoBehaviour
 			BlueprintList.Close();
 			return;
 		}
+		BlueprintThumbnails.Tick();
 		if (BlueprintList.IsOpen)
 		{
-			BlueprintThumbnails.Tick();
 			if (Keys.Down(KeyCode.Escape) || (!BlueprintList.Typing && Keys.Down(ModConfig.KeyBlueprintList.Value)))
 			{
 				BlueprintList.Close();

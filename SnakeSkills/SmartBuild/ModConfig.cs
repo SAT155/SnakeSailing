@@ -18,6 +18,8 @@ internal static class ModConfig
 
 	public static ConfigEntry<bool> ListThumbnails;
 
+	public static ConfigEntry<bool> BuildMenuTab;
+
 	// SnakeSkills: every SmartBuild section is shown as "Smart Hammer - <section>". The first time
 	// they appear in SnakeSkills' config, values come over from SmartBuild's/SnakeHammer's .cfg.
 	private const string SectionPrefix = "Smart Hammer - ";
@@ -155,8 +157,9 @@ internal static class ModConfig
 			bool firstTime = !File.Exists(config.ConfigFilePath) || !File.ReadAllText(config.ConfigFilePath).Contains("[" + MainSection + "]");
 			_imported = firstTime ? ReadOldConfig() : null;
 			Enabled = config.Bind(MainSection, "Smart Hammer", SnakeSkillsPlugin.Toggle.On, "SmartBuild (grids, blueprints, Hold, the K panel) on the vanilla hammer. Off: the hammer is plain vanilla. Stays off by itself while SmartBuild or SnakeHammer is installed.");
-			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints. Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's build menu (Misc).");
-			ListThumbnails = config.Bind(MainSection, "Blueprint List Pictures", true, "Show a small picture of each blueprint in the blueprint list. They are drawn the first time the list opens (one per frame) and kept until the game closes.");
+			KeyBlueprintList = config.Bind(MainSection, "Blueprint List Key", KeyCode.Y, "With the hammer out in build mode, press to open the list of saved blueprints. Click one to build it; the list can also save the pieces you selected as a new blueprint. Saved blueprints are also in the hammer's build menu, on the Blueprints tab.");
+			ListThumbnails = config.Bind(MainSection, "Blueprint List Pictures", true, "Show a small picture of each blueprint in the blueprint list and as its icon in the build menu. They are drawn while the hammer is out (one per frame) and kept until the game closes.");
+			BuildMenuTab = config.Bind(MainSection, "Blueprints Tab", true, "Add a Blueprints tab to the hammer's build menu, after Favorites (Q/E or click to reach it). Off: blueprints are listed under Misc instead. Takes effect after restarting the game.");
 			BindAll(config);
 		}
 		finally
