@@ -290,6 +290,19 @@ internal static class RampBlueprints
 			if (line.Count >= 2)
 			{
 				Lines.Draw(line, cyan, 0.1f);
+				// Soft edge lines: how wide the ramp will be (the brush radius when it's saved).
+				float half = Landscaping.TerrainPieceInHand(player, out Piece? piece) && piece != null ? Landscaping.BrushRadius(player, piece) : 2f;
+				foreach (float side in new[] { -half, half })
+				{
+					List<Vector3> edge = new();
+					for (int k = 0; k < line.Count; k++)
+					{
+						Vector3 a = line[Mathf.Max(0, k - 1)], b = line[Mathf.Min(line.Count - 1, k + 1)];
+						Vector2 along = Flat(b - a).normalized;
+						edge.Add(line[k] + new Vector3(-along.y, 0f, along.x) * side);
+					}
+					Lines.Draw(edge, cyan with { a = 0.45f }, 0.05f);
+				}
 			}
 			foreach (Vector3 p in pending)
 			{

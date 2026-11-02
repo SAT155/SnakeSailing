@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace SnakeSkills;
 
-// Ctrl+Z / Ctrl+Y for the hoe (SnakeSkills 1.16). Before each hoe strike (vanilla tools, Ctrl incline,
+// Ctrl+Z / Ctrl+Y for the hoe (SnakeSkills 1.18). Before each hoe strike (vanilla tools, Ctrl incline,
 // Alt blueprint strikes, Restore terrain) the TerrainComp data of every vertex in reach is saved:
 // level and smooth delta, the modified flag and paint. Undo writes those back and saves the zone
 // (after claiming it, so the change reaches everyone). Strikes made while the mouse button stays
@@ -136,7 +136,7 @@ internal static class TerrainUndo
 			step.placed = null;
 			if (step.wood > 0 && ObjectDB.instance.GetItemPrefab("Wood") is { } woodPrefab)
 			{
-				inventory.AddItem(woodPrefab.name, step.wood, 1, 0, 0L, "");
+				inventory.AddItem(woodPrefab, step.wood);
 			}
 			return true;
 		}

@@ -174,7 +174,7 @@ internal static class RestoreTerrain
 			}
 
 			// Stamina and hoe wear are taken by the game after TryPlacePiece returns
-			// (Player.UpdatePlacement), even though PlacePiece is skipped (verified by decompile, 1.16).
+			// (Player.UpdatePlacement), even though PlacePiece is skipped (verified by decompile, 1.18).
 			if (!__instance.NoCostCheat() && !__instance.HaveStamina(__instance.GetBuildStamina()))
 			{
 				if (Hud.instance != null)

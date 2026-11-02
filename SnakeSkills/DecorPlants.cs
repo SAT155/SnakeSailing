@@ -9,7 +9,7 @@ using Object = UnityEngine.Object;
 
 namespace SnakeSkills;
 
-// Decorative plants on the hoe (SnakeSkills 1.16, the user's ask: "add all of the regular plant
+// Decorative plants on the hoe (SnakeSkills 1.18, the user's ask: "add all of the regular plant
 // types (non item giving, other than wood and resin) to the hoe's tool list ... to spruce up the
 // place"). The game's own tree and bush prefabs are found at runtime: trees (TreeBase, they give
 // wood/resin) and bushes/shrubs/ferns that drop nothing or only wood/resin. Berry bushes, crops,
