@@ -19,7 +19,7 @@ namespace SnakeSkills;
 public class SnakeSkillsPlugin : BaseUnityPlugin
 {
 	internal const string ModName = "SnakeSkills";
-	internal const string ModVersion = "1.20.0";
+	internal const string ModVersion = "1.21.0";
 	internal const string ModGUID = "com.snakesquad.snakeskills";
 	internal const string SailingGUID = "org.bepinex.plugins.sailing";
 	internal const string RanchingGUID = "org.bepinex.plugins.ranching";

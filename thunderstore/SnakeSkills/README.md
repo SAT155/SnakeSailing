@@ -42,7 +42,7 @@ for the SnakeSquad server.
   thing, which everyone sees and can chop down. Trees cost 5 wood (*Tree Wood Cost*); Ctrl+Z
   takes a plant back, and plants you planted count as building pieces for players with the mod: the
   hammer removes them (giving the wood back) and Valheim Plus's Advanced Editing Mode can move them.
-  The brush size you pick stays put as the skill rises; middle click resets it. Each hoe
+  The brush size you pick stays put as the skill rises; middle click sets it back to the standard (vanilla) size. Each hoe
   tool's description in the build menu lists these controls. The skill also limits how big a bump
   you can knock down (0.5 m at 0, 3 m at 100) and how far one level ground strike can dig or fill
   (1.5 m at 0, 8 m at 100); strike again to go further. When a strike can't change something
