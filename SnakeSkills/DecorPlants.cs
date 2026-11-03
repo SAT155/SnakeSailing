@@ -167,6 +167,9 @@ internal static class DecorPlants
 			ItemDrop? woodItem = ObjectDB.instance.GetItemPrefab("Wood")?.GetComponent<ItemDrop>();
 			piece.m_resources = cost > 0 && woodItem != null ? new[] { new Piece.Requirement { m_resItem = woodItem, m_amount = cost, m_recover = false } } : new Piece.Requirement[0];
 			piece.m_groundOnly = true;
+			// Without colliders the game never moves a normal ghost off the player's feet (it lines a
+			// ghost up by its colliders). Clip pieces are put straight on the aimed-at point instead.
+			piece.m_clipEverything = true;
 			piece.m_allowedInDungeons = false;
 			piece.m_repairPiece = false;
 			if (effectSource != null)
