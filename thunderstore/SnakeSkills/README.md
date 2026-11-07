@@ -67,6 +67,17 @@ for the SnakeSquad server.
   creatures, players or buildings. Costs half again the eitr of a fireball. Blasted rock trains
   Mining and gets Mining's ore bonus. Settings in *9 - Ember Blast*.
 
+- **Dead Raiser skeleton choice** (vanilla Dead Raiser): with the staff in your hands, **middle
+  click** opens a menu of skeletons to raise: Random (the game's own raise, at the game's own cost),
+  Warrior (sword), Guard (sword and buckler), Archer, Marksman (mountain bow), Brute (poison mace),
+  Fire knight (Brenna's sword) and Champion (Deep North mace and shield). Click one; it stays picked
+  (saved with your character) until you choose again. Each kind has its own eitr cost, shown in the
+  menu. At Blood Magic 0 Random is always the cheapest; costs drop as Blood Magic rises, the cheap
+  kinds faster, so from about level 40 a Warrior costs less than a random raise (green in the menu),
+  and later the Guard and Archer too. The health cost and everything else Blood Magic does are the
+  game's. Costs are in *10 - Dead Raiser* (a multiple of the staff's 100 eitr at Blood Magic 0 and
+  100). Other players see your skeletons' weapons; players with SnakeSkills see them after reloads too.
+
 - **Smart hammer** (vanilla hammer, SnakeHammer built in): the regular hammer has
   SnakeHammer's (SmartBuild's) grids, Hold, nudging and the **K** panel, with the same keys as
   before; nothing changes until you use one of those keys. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
@@ -107,7 +118,7 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 ## Config sections
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
-4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast ·
+4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast · 10 Dead Raiser ·
 Smart Hammer (and *Smart Hammer - Size/Gap/...*, local to each player, not synced)
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
