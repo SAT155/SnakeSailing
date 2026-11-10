@@ -63,11 +63,11 @@ git history).
   `docs/game/summons-and-dead-raiser.md`.
 - **Bubble shield autocast (`BubbleShield.cs`, 1.27)**: off by default, local (unsynced) config in
   *11 - Bubble Shield*. Each frame, with `StaffShield` as the current weapon, checks: still (on ground,
-  no `m_moveDir`, body speed < 0.2 m/s, not in attack/attached) for > 5 s; not in combat
+  no `m_moveDir`, body speed < 0.2 m/s, not in attack/attached) for > 0.5 s (1.28; was 5 s); not in combat
   (`Humanoid.m_lastCombatTimer` < 10 s, a `Player.OnDamaged` postfix for hits, or an alerted
   `BaseAI.IsEnemy` character within 30 m); the longest `SE_Shield` `GetRemaningTime()` <= 5 s (0 with
   no bubble); full health and eitr. The flag arms on the false-to-true edge and clears when
-  `Humanoid.StartAttack(null, false)` succeeds (retried at most once a second while armed).
+  `Humanoid.StartAttack(null, false)` succeeds (retried at most once a second while armed). While armed, a `Hud.UpdateStatusEffects` prefix appends a local `StatusEffect` with the staff's icon to the HUD list (1.28).
 - **Smart hammer (`SnakeSkills/SmartBuild/`, 1.19)**: the SnakeHammer repo's source (a
   **private, decompiled fork of codepeople's SmartBuild 1.21.0: never publish or redistribute
   SnakeSkills builds that contain it**), namespace `SnakeSkills.SmartBuild`. Changes from

@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 using static SnakeSkills.SnakeSkillsPlugin;
@@ -34,7 +35,7 @@ internal static class BubbleShield
 	public static void Init(SnakeSkillsPlugin mod)
 	{
 		autocast = mod.config(Section, "Autocast Bubble Shield", Toggle.Off, "If on, the Staff of Protection (in your hands) recasts its bubble by itself when you have stood still long enough, are not in combat, have full health and full eitr, and the current bubble is about to run out (or there is none). It casts once each time those conditions come together.", synchronizedSetting: false);
-		stillSeconds = mod.config(Section, "Standing Still Seconds", 5f, new ConfigDescription("How long you must stand still before the autocast can fire.", new AcceptableValueRange<float>(0f, 60f)), synchronizedSetting: false);
+		stillSeconds = mod.config(Section, "Standing Still Seconds", 0.5f, new ConfigDescription("How long you must stand still before the autocast can fire.", new AcceptableValueRange<float>(0f, 60f)), synchronizedSetting: false);
 		secondsLeft = mod.config(Section, "Seconds Left On Bubble", 5f, new ConfigDescription("The autocast fires when the current bubble has this many seconds left or fewer (or there is no bubble).", new AcceptableValueRange<float>(0f, 120f)), synchronizedSetting: false);
 	}
 
@@ -47,6 +48,35 @@ internal static class BubbleShield
 			{
 				lastHitTime = Time.time;
 			}
+		}
+	}
+
+	// While the flag is armed, a Staff of Protection icon is appended to the HUD status effect list
+	// (local only: a plain StatusEffect added to the list Hud.UpdateStatusEffects draws, never to SEMan).
+	private static StatusEffect? readyIcon;
+
+	[HarmonyPatch(typeof(Hud), nameof(Hud.UpdateStatusEffects))]
+	private static class ShowReadyIcon
+	{
+		private static void Prefix(List<StatusEffect> __0)
+		{
+			if (!armed || autocast.Value == Toggle.Off || __0 == null)
+			{
+				return;
+			}
+			if (readyIcon == null)
+			{
+				Sprite? icon = ObjectDB.instance?.GetItemPrefab(StaffPrefab)?.GetComponent<ItemDrop>()?.m_itemData.GetIcon();
+				if (icon == null)
+				{
+					return;
+				}
+				readyIcon = ScriptableObject.CreateInstance<StatusEffect>();
+				readyIcon.name = "SnakeSkills_BubbleAutocastReady";
+				readyIcon.m_name = "Bubble autocast ready";
+				readyIcon.m_icon = icon;
+			}
+			__0.Add(readyIcon);
 		}
 	}
 

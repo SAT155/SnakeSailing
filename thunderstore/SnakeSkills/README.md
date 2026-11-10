@@ -80,11 +80,11 @@ for the SnakeSquad server.
 
 - **Bubble shield autocast** (vanilla Staff of Protection, off by default): turn on *Autocast Bubble
   Shield* in *11 - Bubble Shield* (your own setting, not the server's). With the staff in your hands,
-  it recasts the bubble by itself when all of these hold: you have stood still for more than 5 s, you
+  it recasts the bubble by itself when all of these hold: you have stood still for more than 0.5 s, you
   are not in combat (no attacks or hits on you for 10 s, no alerted enemy within 30 m), the current
   bubble has 5 s or less left (or there is none), and you have full health and full eitr. It casts
   once each time those conditions come together, then waits until they break and come together
-  again. The cast is the staff's normal cast (same cost, animation and skill). Both 5 s values are
+  again. While it is waiting to cast, a Staff of Protection icon shows with your status effects. The cast is the staff's normal cast (same cost, animation and skill). Both times are
   in the config.
 
 - **Smart hammer** (vanilla hammer, SnakeHammer built in): the regular hammer has
