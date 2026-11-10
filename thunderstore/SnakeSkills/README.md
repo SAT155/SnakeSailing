@@ -134,3 +134,7 @@ Works with or without Valheim Plus (a warning is logged when both are loaded, si
 ships, taming and mining).
 
 Original mods by [blaxxun-boop](https://github.com/blaxxun-boop) (Smoothbrain).
+
+## Feedback
+
+Feedback, bug reports and requests are welcome at [feedback@snakesquad.net](mailto:feedback@snakesquad.net).
