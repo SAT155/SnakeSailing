@@ -106,6 +106,7 @@
         <Compile Include="Trinkets.cs"/>
         <Compile Include="EmberBlast.cs"/>
         <Compile Include="DeadRaiser.cs"/>
+        <Compile Include="BubbleShield.cs"/>
         <!-- Smart hammer: SnakeHammer's SmartBuild port (decompiled, private; never publish). -->
         <Compile Include="SmartBuild/*.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>

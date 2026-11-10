@@ -78,6 +78,15 @@ for the SnakeSquad server.
   game's. Costs are in *10 - Dead Raiser* (a multiple of the staff's 100 eitr at Blood Magic 0 and
   100). Other players see your skeletons' weapons; players with SnakeSkills see them after reloads too.
 
+- **Bubble shield autocast** (vanilla Staff of Protection, off by default): turn on *Autocast Bubble
+  Shield* in *11 - Bubble Shield* (your own setting, not the server's). With the staff in your hands,
+  it recasts the bubble by itself when all of these hold: you have stood still for more than 0.5 s, you
+  are not in combat (no attacks or hits on you for 10 s, no alerted enemy within 30 m), the current
+  bubble has 5 s or less left (or there is none), and you have full health and full eitr. It casts
+  once each time those conditions come together, then waits until they break and come together
+  again. While it is waiting to cast, a Staff of Protection icon shows with your status effects. The cast is the staff's normal cast (same cost, animation and skill). Both times are
+  in the config.
+
 - **Smart hammer** (vanilla hammer, SnakeHammer built in): the regular hammer has
   SnakeHammer's (SmartBuild's) grids, Hold, nudging and the **K** panel, with the same keys as
   before; nothing changes until you use one of those keys. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
@@ -118,7 +127,7 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 ## Config sections
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
-4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast · 10 Dead Raiser ·
+4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast · 10 Dead Raiser · 11 Bubble Shield ·
 Smart Hammer (and *Smart Hammer - Size/Gap/...*, local to each player, not synced)
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
