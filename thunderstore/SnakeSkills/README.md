@@ -101,6 +101,10 @@ plus new skills and tweaks to a few vanilla items.
   either is installed the smart hammer here stays off. Client side only; works with Valheim
   Plus's grid alignment on or off.
 
+- **Dual wielding spears**: unfortunately, no amount of Sailing, Ranching, Mining, Fishing or
+  Landscaping will teach you to hold a spear in each hand. There is no skill for that, and this
+  mod does not add one.
+
 ## Your skill levels are safe now
 
 Vanilla Valheim throws away any skill it doesn't know when it loads a character. So one session
