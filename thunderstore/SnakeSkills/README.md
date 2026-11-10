@@ -1,7 +1,7 @@
 # SnakeSkills
 
-blaxxun-boop's **Sailing**, **Ranching** and **Mining** skill mods in one plugin, kept up to date
-for the SnakeSquad server.
+blaxxun-boop's **Sailing**, **Ranching** and **Mining** skill mods in one plugin, kept up to date,
+plus new skills and tweaks to a few vanilla items.
 
 - **Sailing**: ships you build get more health, ships you steer go faster, and you explore a wider
   radius while on a ship. Shift + E on a ladder nudges a stuck ship.
