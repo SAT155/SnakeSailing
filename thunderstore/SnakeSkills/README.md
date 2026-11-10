@@ -1,7 +1,7 @@
 # SnakeSkills
 
-blaxxun-boop's **Sailing**, **Ranching** and **Mining** skill mods in one plugin, kept up to date
-for the SnakeSquad server.
+blaxxun-boop's **Sailing**, **Ranching** and **Mining** skill mods in one plugin, kept up to date,
+plus new skills and tweaks to a few vanilla items.
 
 - **Sailing**: ships you build get more health, ships you steer go faster, and you explore a wider
   radius while on a ship. Shift + E on a ladder nudges a stuck ship.
@@ -101,6 +101,10 @@ for the SnakeSquad server.
   either is installed the smart hammer here stays off. Client side only; works with Valheim
   Plus's grid alignment on or off.
 
+- **Dual wielding spears**: unfortunately, no amount of Sailing, Ranching, Mining, Fishing or
+  Landscaping will teach you to hold a spear in each hand. There is no skill for that, and this
+  mod does not add one.
+
 ## Your skill levels are safe now
 
 Vanilla Valheim throws away any skill it doesn't know when it loads a character. So one session
@@ -134,3 +138,7 @@ Works with or without Valheim Plus (a warning is logged when both are loaded, si
 ships, taming and mining).
 
 Original mods by [blaxxun-boop](https://github.com/blaxxun-boop) (Smoothbrain).
+
+## Feedback
+
+Feedback, bug reports and requests are welcome at [feedback@snakesquad.net](mailto:feedback@snakesquad.net).
