@@ -6,7 +6,7 @@ using static SnakeSkills.SnakeSkillsPlugin;
 
 namespace SnakeSkills;
 
-// Bubble shield autocast (Sam's ask, 2026-11-07): with the Staff of Protection in hand, the staff
+// Bubble shield autocast (SAT's ask, 2026-11-07): with the Staff of Protection in hand, the staff
 // recasts its bubble by itself when ALL of these hold: standing still for more than 5 s, not in
 // combat, 5 s or less left on the current bubble (or no bubble), full health and full eitr.
 // The autocast flag is armed when the conditions become true, cleared once the cast starts, and only
