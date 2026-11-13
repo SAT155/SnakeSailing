@@ -1,0 +1,10 @@
+{
+  "name": "SnakeSkills",
+  "author": "SAT",
+  "version_number": "1.29.0",
+  "website_url": "https://github.com/SAT155/SnakeSailing",
+  "description": "Sailing, Ranching, Mining and Landscaping skills, Fishing XP by fish, Ember Blast, Dead Raiser skeleton choice and more. Skill levels survive playing a session without the mod.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2350"
+  ]
+}
