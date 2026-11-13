@@ -1,14 +1,15 @@
 # SnakeSkills
 
-blaxxun-boop's **Sailing**, **Ranching** and **Mining** skill mods in one plugin, kept up to date,
-plus new skills and tweaks to a few vanilla items.
+**Sailing**, **Ranching** and **Mining** skills in one plugin, plus new skills and tweaks to a few
+vanilla items.
 
-- **Sailing**: ships you build get more health, ships you steer go faster, and you explore a wider
-  radius while on a ship. Shift + E on a ladder nudges a stuck ship.
+- **Sailing**: ships you build get more health, ships you steer go faster, and you reveal more of
+  the map while on a ship. Shift + E on a ship's ladder pushes a stuck ship the way you face.
+  Servers can set a Sailing level needed to steer each kind of ship or raise its sail.
 - **Ranching**: animals tame faster and tamed animals drop more. Higher levels show hunger and
-  pregnancy timers, keep taming animals calm, and give offspring a chance at an extra star.
+  breeding timers, keep animals you are taming calm, and give offspring a chance at an extra star.
 - **Mining**: more pickaxe damage and ore. From level 50, a small chance the whole deposit breaks
-  at once (Ctrl + T toggles it).
+  at once (Ctrl + T switches that off and on for you).
 - **Fishing XP by fish** (vanilla Fishing skill): every catch gives Fishing XP by the kind of
   fish, from 10 for a Perch up to 150 for a Magmafish, more for starred fish. Reeling in a hard
   fish also trains faster (up to 4x for a Magmafish). Vanilla gives nothing for the catch and the
@@ -87,20 +88,6 @@ plus new skills and tweaks to a few vanilla items.
   again. While it is waiting to cast, a Staff of Protection icon shows with your status effects. The cast is the staff's normal cast (same cost, animation and skill). Both times are
   in the config.
 
-- **Smart hammer** (vanilla hammer, SnakeHammer built in): the regular hammer has
-  SnakeHammer's (SmartBuild's) grids, Hold, nudging and the **K** panel, with the same keys as
-  before; nothing changes until you use one of those keys. Press **Y** for the **blueprint list** (with a small picture of each one): click a name or picture to build it, type to search,
-  delete with a second click to confirm. To make a blueprint, aim at built pieces and press **F**
-  (Shift+F: the whole group they were built with, Alt+F: everything connected) or use the **J**
-  box, then press **Save selection** in the list (or Ctrl+S) and name it. Saved blueprints also
-  get their own **Blueprints** tab in the build menu, after Favorites (Q/E or click), with
-  their pictures as icons. A blueprint that needs more materials than the build info's slots
-  lists all of them (have / need, red when short) in a panel beside or above it. Blueprints and settings carry over from
-  SmartBuild/SnakeHammer (same `BepInEx/config/SmartBuild/Blueprints` folder; settings are
-  copied once into the *Smart Hammer - ...* sections). **Remove SnakeHammer/SmartBuild**: while
-  either is installed the smart hammer here stays off. Client side only; works with Valheim
-  Plus's grid alignment on or off.
-
 - **Dual wielding spears**: unfortunately, no amount of Sailing, Ranching, Mining, Fishing or
   Landscaping will teach you to hold a spear in each hand. There is no skill for that, and this
   mod does not add one.
@@ -132,12 +119,13 @@ once before playing unmodded. Levels already lost before SnakeSkills can't be re
 
 1 General (lock) · 2 Sailing · 3 Sailing Ship Speed (per ship, appears once a world loads) ·
 4 Ranching · 5 Mining · 6 Fishing · 7 Landscaping · 8 Trinkets · 9 Ember Blast · 10 Dead Raiser · 11 Bubble Shield ·
-Smart Hammer (and *Smart Hammer - Size/Gap/...*, local to each player, not synced)
+Settings from SnakeSkills 1.28 and older keep working: the section and setting names are unchanged.
 
 Works with or without Valheim Plus (a warning is logged when both are loaded, since both touch
 ships, taming and mining).
 
-Original mods by [blaxxun-boop](https://github.com/blaxxun-boop) (Smoothbrain).
+Sailing, Ranching and Mining are inspired by blaxxun-boop's (Smoothbrain) mods of the same names.
+They are written from scratch for SnakeSkills and keep the same skill names, so levels carry over.
 
 ## Feedback
 

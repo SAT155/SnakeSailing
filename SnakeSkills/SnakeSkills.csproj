@@ -81,10 +81,6 @@
         <Reference Include="ServerSync">
             <HintPath>Libs/ServerSync.dll</HintPath>
         </Reference>
-        <Reference Include="CreatureLevelControlAPI">
-            <HintPath>Libs/CreatureLevelControlAPI.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
         <Reference Include="SkillManager">
             <HintPath>Libs/SkillManager.dll</HintPath>
             <Private>false</Private>
@@ -94,6 +90,7 @@
         <Compile Include="Plugin.cs"/>
         <Compile Include="SkillBackup.cs"/>
         <Compile Include="ConfigImport.cs"/>
+        <Compile Include="SkillShare.cs"/>
         <Compile Include="Sailing.cs"/>
         <Compile Include="Ranching.cs"/>
         <Compile Include="Mining.cs"/>
@@ -107,8 +104,6 @@
         <Compile Include="EmberBlast.cs"/>
         <Compile Include="DeadRaiser.cs"/>
         <Compile Include="BubbleShield.cs"/>
-        <!-- Smart hammer: SnakeHammer's SmartBuild port (decompiled, private; never publish). -->
-        <Compile Include="SmartBuild/*.cs"/>
         <Compile Include="Properties/AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
@@ -119,9 +114,6 @@
         <EmbeddedResource Include="icons/restore.png"/>
         <None Include="ILRepack.targets"/>
         <None Include="Libs/ServerSync.dll">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </None>
-        <None Include="Libs/CreatureLevelControlAPI.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
         <None Include="Libs/SkillManager.dll">

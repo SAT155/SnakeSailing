@@ -1,25 +1,52 @@
 # SnakeSailing → SnakeSkills
 
-This repo builds **SnakeSkills**: maintained copies of three
-[Smoothbrain](https://valheim.hexium.gg/mods/Smoothbrain/) / [blaxxun-boop](https://github.com/blaxxun-boop)
-skill mods combined into one BepInEx plugin, updated for Valheim 1.0 / Ashlands and later, for a
-small private dedicated server. Player-facing details are in
-[`thunderstore/SnakeSkills/README.md`](thunderstore/SnakeSkills/README.md).
+This repo builds two BepInEx plugins for a small private dedicated server:
 
-| Skill | Source | File |
-| --- | --- | --- |
-| Sailing | [blaxxun-boop/Sailing](https://github.com/blaxxun-boop/sailing) 1.1.10 | `SnakeSkills/Sailing.cs` |
-| Ranching | [blaxxun-boop/Ranching](https://github.com/blaxxun-boop/ranching) 1.1.10 | `SnakeSkills/Ranching.cs` |
-| Mining | [blaxxun-boop/Mining](https://github.com/blaxxun-boop/mining) 1.1.8 | `SnakeSkills/Mining.cs` |
+- **SnakeSkills** (`SnakeSkills/`, `com.snakesquad.snakeskills`, `SnakeSkills.dll`): Sailing,
+  Ranching, Mining and Landscaping skills, Fishing XP by fish and other tweaks, with one ServerSync
+  config. All SAT's own code plus the free SkillManager and ServerSync libraries, so it can be
+  shared on Thunderstore. Player-facing details are in
+  [`thunderstore/SnakeSkills/README.md`](thunderstore/SnakeSkills/README.md).
+- **SnakeSmartHammer** (`SnakeSmartHammer/`, `com.snakesquad.snakesmarthammer`): the smart hammer.
+  It is a decompiled fork of codepeople's SmartBuild, which has no open licence, so it ships in
+  this repo's GitHub releases only. **Never upload it to Thunderstore.**
 
-Until SnakeSkills the three were separate projects here (`Sailing/`, `Ranching/`, `Mining/`, see
-git history).
+## Sailing, Ranching and Mining (rewritten in 1.29)
 
-## What changed from upstream
+Up to 1.28 these three were copies of blaxxun-boop's Sailing, Ranching and Mining mods, which
+have no open licence. 1.29 replaces them with new code written from a description of how the
+skills behave. The skill names are unchanged (skill ids are `Skill.fromName(name)`, a hash of the
+English name), and so are the config sections and keys, so levels and settings carry over.
 
-- **One plugin** (`com.snakesquad.snakeskills`, `SnakeSkills.dll`) with one ServerSync config.
-  Skill game logic is unchanged. Same skill names, so the same skill ids
-  (`Skill.fromName(name)` = hash of the English name): existing levels carry over.
+- **Shared (`SkillShare.cs`)**: the machine that runs a ship, animal or rock is often not the
+  skilled player's, so the local player writes `SnakeSkills <Skill>` (level 0-1) and
+  `SnakeSkills ExplosiveMining` to their player ZDO twice a second, and experience goes back
+  through the `SnakeSkills RaiseSkill` RPC on the player's `ZNetView`.
+- **Sailing**: `WearNTear.OnPlaced` saves the builder's level on the ship's ZDO as
+  `Sailing Skill Level` (the 1.28 key, so older ships keep it) and `WearNTear.Awake` scales
+  `m_health` by `1 + level x Ship Health Factor`. `Ship.GetSailForce` scales by the captain's
+  level x the ship type's speed factor and gives the captain 0.5 XP per second under sail.
+  Per-ship-type settings are added in a late `ZNetScene.Awake` postfix. `ShipControlls.Interact`
+  and `Ship.Forward` enforce the helm/half/full sail levels. `Minimap.Explore` widens the radius
+  while attached to a ship. `Ladder.Interact` with the modifier pushes the ship
+  (`ForceMode.VelocityChange`, 1 s cooldown, only when facing it).
+- **Ranching**: `Tameable.DecreaseRemainingTime` (nearest player within 10 m, 10% chance of 7 XP),
+  `CharacterDrop.GenerateDropList` for tamed animals (nearest player within 50 m, 50 XP),
+  `Player.GetStealthFactor` returns 0 while a partly tamed animal's `MonsterAI.UpdateAI` runs,
+  `Tameable.GetStatusString` adds breeding progress, time until birth (approximate: birth happens
+  at the first breeding check after it) and time until hungry, and `Procreation.Procreate`
+  temporarily raises `m_minOffspringLevel`. The star cap is 3, or Creature Level & Loot Control's
+  `API.GetMaxLevel()` found by reflection (no compile-time dependency any more).
+- **Mining**: `SEMan.ModifyAttack` scales pickaxe damage (`Mining.DamageMultiplier`, also used by
+  Ember Blast). Prefixes on `MineRock5.RPC_Damage`, `MineRock.RPC_Hit` and rock-like
+  `Destructible.RPC_Damage` (`Mining.IsRock`) note the miner for the yield bonus in a low-priority
+  `DropTable.GetDropList` postfix, give 1 XP per valid hit on the owner, and roll the
+  whole-deposit break, which hits every remaining area with tool tier 1000. Each player's
+  Ctrl+T choice travels in their ZDO, so it applies on whichever machine owns the rock.
+- Icons are new (`tools/make_skill_icons.py`).
+
+## Other features
+
 - **Skill backup (`SkillBackup.cs`).** Vanilla `Skills.Load` drops skill ids that aren't in the
   `SkillType` enum (`IsSkillValid`), and the next save writes the list without them, so one
   unmodded login wiped the custom skills. A `Player.Save` prefix copies each custom skill to
@@ -68,7 +95,17 @@ git history).
   `BaseAI.IsEnemy` character within 30 m); the longest `SE_Shield` `GetRemaningTime()` <= 5 s (0 with
   no bubble); full health and eitr. The flag arms on the false-to-true edge and clears when
   `Humanoid.StartAttack(null, false)` succeeds (retried at most once a second while armed). While armed, a `Hud.UpdateStatusEffects` prefix appends a local `StatusEffect` with the staff's icon to the HUD list (1.28).
-- **Smart hammer (`SnakeSkills/SmartBuild/`, 1.19)**: the SnakeHammer repo's source (a
+- `BepInIncompatibility` on blaxxun-boop's three GUIDs, so SnakeSkills doesn't double up with them.
+- Works with Valheim Plus (a warning is logged, since both touch ships, taming and mining).
+
+## Smart hammer (SnakeSmartHammer)
+
+- 1.29: moved out of SnakeSkills into its own plugin, `SnakeSmartHammer/` (namespace
+  `SnakeSmartHammer`, `HammerPlugin` is the BepInEx plugin, SmartBuild's old `Plugin` class is a
+  component on it). On its first start it copies the `[Smart Hammer...]` sections from
+  `com.snakesquad.snakeskills.cfg` into its own config. Blueprints stay in
+  `BepInEx/config/SmartBuild/Blueprints`. No ServerSync (all its settings are local).
+- History (1.19-1.28, then inside SnakeSkills as `SnakeSkills/SmartBuild/`): the SnakeHammer repo's source (a
   **private, decompiled fork of codepeople's SmartBuild 1.21.0: never publish or redistribute
   SnakeSkills builds that contain it**), namespace `SnakeSkills.SmartBuild`. Changes from
   SnakeHammer: no Jotunn. The Smart Hammer item is gone; `SmartHammer.Equipped` = vanilla
@@ -89,17 +126,15 @@ git history).
   patches its own classes (`SnakeSkillsPlugin` skips that namespace); with
   `com.codepeople.smartbuild` loaded none of it runs. Config: SmartBuild sections prefixed
   `Smart Hammer - `, bound unsynced, imported once from `com.codepeople.smartbuild.cfg`.
-- `BepInIncompatibility` on the three old GUIDs, so SnakeSkills doesn't double up with them.
-- Upstream's hard block on Valheim Plus is a warning instead.
 
 ## Building
 
 - **CI** (`.github/workflows/build.yml`) builds on every push with no game install: it downloads
   the free Valheim dedicated server (SteamCMD, app 896660) for the game assemblies and the
-  BepInEx pack, builds `SnakeSkills.dll`, ILRepacks `SkillManager`, `ServerSync` and
-  `CreatureLevelControlAPI` into it, and packages `SnakeSkills-<version>.zip` for r2modman's
-  **Import local mod**.
-- **Releases** are automatic: every push to the default branch that changes `SnakeSkills/` or
+  BepInEx pack, builds `SnakeSkills.dll` (ILRepacks `SkillManager` and `ServerSync` into it) and
+  `SnakeSmartHammer.dll`, and packages `SnakeSkills-<version>.zip` and
+  `SnakeSmartHammer-<version>.zip` for r2modman's **Import local mod**.
+- **Releases** are automatic: every push to the default branch that changes `SnakeSkills/`, `SnakeSmartHammer/` or
   `thunderstore/` publishes `v<MAJOR.MINOR>.<run number>` (MAJOR.MINOR from
   `thunderstore/SnakeSkills/manifest.json`) with the zip attached. A manual run on another branch
   publishes a pre-release for testing.
@@ -107,11 +142,12 @@ git history).
   installed (Steam install auto-detected, or pass `-p:GamePath=...`, or
   `-p:ManagedDir=... -p:BepInExDir=...`).
 
-`tools/make_icon.py` redraws the package icon from the three skill icons.
+`tools/make_skill_icons.py` draws the three skill icons; `tools/make_icon.py` redraws the
+package icon from them.
 
 ## Credits
 
-Original mods by [blaxxun-boop](https://github.com/blaxxun-boop)
-([Sailing](https://github.com/blaxxun-boop/sailing),
-[Ranching](https://github.com/blaxxun-boop/ranching),
-[Mining](https://github.com/blaxxun-boop/mining)). This repo carries forward their 1.0/Ashlands fixes for a private dedicated server.
+Sailing, Ranching and Mining are inspired by [blaxxun-boop](https://github.com/blaxxun-boop)'s
+(Smoothbrain) mods of the same names; the code here is written from scratch. The smart hammer
+derives from codepeople's SmartBuild. SkillManager and ServerSync are blaxxun-boop's libraries,
+free to use.

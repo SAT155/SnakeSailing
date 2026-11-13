@@ -1,291 +1,282 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.RegularExpressions;
+using System.Text;
 using BepInEx.Configuration;
 using HarmonyLib;
-using JetBrains.Annotations;
 using SkillManager;
 using UnityEngine;
 using static SnakeSkills.SnakeSkillsPlugin;
 
 namespace SnakeSkills;
 
-// Sailing skill, from blaxxun-boop's Sailing 1.1.10. Only the config layout changed.
+// Sailing: tougher ships for skilled builders, faster ships for skilled captains, a wider map
+// reveal at sea, optional skill gates per ship type, and a push for stuck ships.
 internal static class Sailing
 {
+	internal const string SkillName = "Sailing";
 	private const string Section = "2 - Sailing";
 	private const string SpeedSection = "3 - Sailing Ship Speed";
 
-	private static ConfigEntry<float> explorationRadiusIncrease = null!;
-	private static ConfigEntry<float> shipHealthIncrease = null!;
-	private static ConfigEntry<float> experienceGainedFactor = null!;
-	private static ConfigEntry<int> experienceLoss = null!;
-	private static ConfigEntry<KeyboardShortcut> shipNudgeModifierkey = null!;
-	private static ConfigEntry<Toggle> allowShipNudge = null!;
-	private static ConfigEntry<float> nudgeForce = null!;
+	// The builder's Sailing level (0-1), saved on the ship when it is placed. SnakeSkills 1.28 and
+	// older used the same key, so ships built before keep their extra health.
+	private const string BuilderLevelKey = "Sailing Skill Level";
 
-	private static readonly Dictionary<string, ConfigEntry<float>> shipSpeedIncrease = new();
-	private static readonly Dictionary<string, ConfigEntry<int>> shipPaddleRequirement = new();
-	private static readonly Dictionary<string, ConfigEntry<int>> shipHalfRequirement = new();
-	private static readonly Dictionary<string, ConfigEntry<int>> shipFullRequirement = new();
+	private static Skill skill = null!;
+	private static ConfigEntry<float> healthBonus = null!;
+	private static ConfigEntry<float> revealBonus = null!;
+	private static ConfigEntry<float> xpFactor = null!;
+	private static ConfigEntry<int> xpLoss = null!;
+	private static ConfigEntry<Toggle> pushAllowed = null!;
+	private static ConfigEntry<KeyboardShortcut> pushKey = null!;
+	private static ConfigEntry<float> pushStrength = null!;
 
-	private static Skill sailing = null!;
+	private sealed class ShipType
+	{
+		public ConfigEntry<float> Speed = null!;
+		public ConfigEntry<int> Paddle = null!;
+		public ConfigEntry<int> HalfSail = null!;
+		public ConfigEntry<int> FullSail = null!;
+	}
+
+	private static readonly Dictionary<string, ShipType> shipTypes = new();
 
 	public static void Init(SnakeSkillsPlugin mod)
 	{
-		sailing = new Skill("Sailing", "sailing.png");
-		sailing.Description.English("Increases the health of ships built by you, sailing speed of ships commanded by you and your exploration radius while on a ship.");
-		sailing.Name.German("Segeln");
-		sailing.Description.German("Erhöht die Lebenspunkte von dir gebauter Schiffe, erhöht die Geschwindigkeit von Schiffen, die du steuerst und erhöht deinen Erkundungsradius, wenn du dich auf einem Schiff befindest.");
-		sailing.Configurable = false;
+		skill = new Skill(SkillName, "sailing.png");
+		skill.Description.English("Ships you build are sturdier, ships you steer are faster, and you reveal more of the map while aboard.");
+		skill.Configurable = false;
 
-		shipNudgeModifierkey = mod.config(Section, "Ship Nudge Modifier Key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Modifier key to hold, to nudge your ship. Clear value to disable this."), SailingGUID, "1 - General", false);
-		explorationRadiusIncrease = mod.config(Section, "Exploration Radius Factor", 5f, new ConfigDescription("Exploration radius factor while on ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
-		shipHealthIncrease = mod.config(Section, "Ship Health Factor", 2f, new ConfigDescription("Health factor for ships at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
-		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the sailing skill.", new AcceptableValueRange<float>(0.01f, 5f)), SailingGUID, "3 - Other");
-		experienceGainedFactor.SettingChanged += (_, _) => sailing.SkillGainFactor = experienceGainedFactor.Value;
-		sailing.SkillGainFactor = experienceGainedFactor.Value;
-		experienceLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the sailing skill on death.", new AcceptableValueRange<int>(0, 100)), SailingGUID, "3 - Other");
-		experienceLoss.SettingChanged += (_, _) => sailing.SkillLoss = experienceLoss.Value;
-		sailing.SkillLoss = experienceLoss.Value;
-		allowShipNudge = mod.config(Section, "Allow Ship Nudge", Toggle.On, new ConfigDescription("If on, players can press a hotkey, to give their ship a nudge, if it is stuck."), SailingGUID, "3 - Other");
-		nudgeForce = mod.config(Section, "Ship Nudge Force", 10f, new ConfigDescription("Impulse force for ship nudge."), SailingGUID, "3 - Other");
+		pushKey = mod.config(Section, "Ship Nudge Modifier Key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Hold this and use a ship's ladder to push the ship the way you face. Leave empty to turn pushing off for yourself."), SailingGUID, "1 - General", false);
+		revealBonus = mod.config(Section, "Exploration Radius Factor", 5f, new ConfigDescription("Extra map reveal radius on a ship at Sailing 100, as a multiple of the normal radius added on top (5 = six times the radius). Lower levels get a matching share.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
+		healthBonus = mod.config(Section, "Ship Health Factor", 2f, new ConfigDescription("Extra health for a ship built at Sailing 100, as a multiple of its normal health added on top (2 = three times the health). Lower levels get a matching share. The builder's level is saved on the ship.", new AcceptableValueRange<float>(1f, 10f)), SailingGUID, "3 - Other");
+		xpFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Multiplies all Sailing experience.", new AcceptableValueRange<float>(0.01f, 5f)), SailingGUID, "3 - Other");
+		xpFactor.SettingChanged += (_, _) => skill.SkillGainFactor = xpFactor.Value;
+		skill.SkillGainFactor = xpFactor.Value;
+		xpLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("Sailing experience lost on death.", new AcceptableValueRange<int>(0, 100)), SailingGUID, "3 - Other");
+		xpLoss.SettingChanged += (_, _) => skill.SkillLoss = xpLoss.Value;
+		skill.SkillLoss = xpLoss.Value;
+		pushAllowed = mod.config(Section, "Allow Ship Nudge", Toggle.On, new ConfigDescription("If on, players can push a stuck ship from its ladder (modifier key + use)."), SailingGUID, "3 - Other");
+		pushStrength = mod.config(Section, "Ship Nudge Force", 10f, new ConfigDescription("How hard one push is: the speed change in m/s it gives the ship."), SailingGUID, "3 - Other");
 	}
 
-	[HarmonyPatch(typeof(WearNTear), nameof(WearNTear.OnPlaced))]
-	private class AddZDO
-	{
-		[UsedImplicitly]
-		private static void Postfix(WearNTear __instance)
-		{
-			if (__instance.GetComponent<Ship>())
-			{
-				__instance.GetComponent<ZNetView>().GetZDO().Set("Sailing Skill Level", Player.m_localPlayer.GetSkillFactor("Sailing"));
-				__instance.m_health *= 1 + __instance.GetComponent<ZNetView>().GetZDO().GetFloat("Sailing Skill Level") * shipHealthIncrease.Value;
-				Player.m_localPlayer.RaiseSkill("Sailing", 35f);
-			}
-		}
-	}
+	private static int LocalLevel => Mathf.RoundToInt(Player.m_localPlayer.GetSkillFactor(SkillName) * 100f);
 
-	[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.CopyOtherDB))]
-	private class FetchShipPiecesObjectDB
-	{
-		[HarmonyPriority(Priority.Last)]
-		private static void Postfix(ObjectDB __instance)
-		{
-			if (__instance.GetItemPrefab("Hammer")?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces is { } pieces)
-			{
-				FetchShipPieces(pieces.m_pieces);
-			}
-		}
-	}
+	private static ShipType? TypeOf(Ship ship) => ship.GetComponent<Piece>() is { } piece && shipTypes.TryGetValue(piece.m_name, out ShipType type) ? type : null;
 
+	// Ship types are known once the prefabs are loaded (vanilla and modded ships alike).
 	[HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
-	private class FetchShipPiecesZNetScene
+	private static class AddShipTypes
 	{
 		[HarmonyPriority(Priority.Last)]
 		private static void Postfix(ZNetScene __instance)
 		{
-			FetchShipPieces(__instance.m_prefabs);
-		}
-	}
-
-	private static void FetchShipPieces(IEnumerable<GameObject> prefabs)
-	{
-		Localization english = new();
-		english.SetupLanguage("English");
-
-		Regex regex = new("['[\"\\]]");
-
-		List<string> shipOrder = new() { "$ship_longship_ashlands", "$ship_longship", "$ship_karve", "$ship_raft" };
-		foreach (Ship ship in prefabs.Select(p => p.GetComponent<Ship>()).Where(s => s?.GetComponent<Piece>() != null).OrderByDescending(s => shipOrder.IndexOf(s.GetComponent<Piece>().m_name)))
-		{
-			int order = -shipSpeedIncrease.Count * 4;
-
-			string pieceName = ship.GetComponent<Piece>().m_name;
-
-			if (shipSpeedIncrease.ContainsKey(pieceName))
+			Localization english = new();
+			english.SetupLanguage("English");
+			foreach (Piece piece in __instance.m_prefabs.Where(p => p != null && p.GetComponent<Ship>() != null).Select(p => p.GetComponent<Piece>()).Where(p => p != null).OrderBy(p => p.m_name))
 			{
-				continue;
-			}
-
-			string key = regex.Replace(english.Localize(pieceName), "");
-			shipSpeedIncrease[pieceName] = instance.config(SpeedSection, $"{key} Speed Factor", 1.5f, new ConfigDescription($"Speed factor for {english.Localize(pieceName)} at skill level 100.", new AcceptableValueRange<float>(1f, 3f), new ConfigurationManagerAttributes { Order = --order, DispName = $"{Localization.instance.Localize(pieceName)} Speed Factor", Description = $"Speed factor for {Localization.instance.Localize(pieceName)} at skill level 100." }), SailingGUID, "2 - Ship Speed");
-			shipPaddleRequirement[pieceName] = instance.config(SpeedSection, $"{key} Paddle Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to paddle a {english.Localize(pieceName)}.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Paddle Requirement", Description = $"Required sailing skill level to be able to paddle a {Localization.instance.Localize(pieceName)}." }), SailingGUID, "2 - Ship Speed");
-			shipHalfRequirement[pieceName] = instance.config(SpeedSection, $"{key} Half Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with reduced sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Half Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with reduced sail." }), SailingGUID, "2 - Ship Speed");
-			shipFullRequirement[pieceName] = instance.config(SpeedSection, $"{key} Full Requirement", 0, new ConfigDescription($"Required sailing skill level to be able to sail a {english.Localize(pieceName)} with full sail.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Order = --order, ShowRangeAsPercent = false, DispName = $"{Localization.instance.Localize(pieceName)} Full Requirement", Description = $"Required sailing skill level to be able to sail a {Localization.instance.Localize(pieceName)} with full sail." }), SailingGUID, "2 - Ship Speed");
-		}
-	}
-
-	[HarmonyPatch(typeof(Ladder), nameof(Ladder.Interact))]
-	private static class NudgeShip
-	{
-		private static DateTime lastNudge = DateTime.UtcNow;
-
-		private static bool Prefix(Ladder __instance)
-		{
-			if (allowShipNudge.Value == Toggle.Off || Player.m_localPlayer.IsSwimming())
-			{
-				return true;
-			}
-
-			if (Input.GetKey(shipNudgeModifierkey.Value.MainKey) && shipNudgeModifierkey.Value.Modifiers.All(Input.GetKey))
-			{
-				if ((DateTime.UtcNow - lastNudge).TotalSeconds < 1)
+				if (shipTypes.ContainsKey(piece.m_name))
 				{
-					return false;
+					continue;
 				}
 
-				lastNudge = DateTime.UtcNow;
-
-				Rigidbody ship = __instance.GetComponentInParent<Rigidbody>();
-				if (Math.Abs(Vector3.SignedAngle(ship.transform.position - Player.m_localPlayer.transform.position, Player.m_localPlayer.transform.forward, Player.m_localPlayer.transform.up)) < 90)
+				string label = english.Localize(piece.m_name);
+				string key = CleanKey(label);
+				shipTypes[piece.m_name] = new ShipType
 				{
-					ship.AddForce(Player.m_localPlayer.transform.forward * ship.mass * nudgeForce.Value, ForceMode.Impulse);
-				}
-				else
-				{
-					Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Please don't nudge your ship with your butt.");
-				}
-
-				return false;
+					Speed = instance.config(SpeedSection, $"{key} Speed Factor", 1.5f, new ConfigDescription($"Extra sailing speed of a {label} steered at Sailing 100, as a multiple of its normal speed added on top. Lower levels get a matching share.", new AcceptableValueRange<float>(1f, 3f)), SailingGUID, "2 - Ship Speed"),
+					Paddle = instance.config(SpeedSection, $"{key} Paddle Requirement", 0, new ConfigDescription($"Sailing level needed to take the helm of a {label}. 0: anyone.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), SailingGUID, "2 - Ship Speed"),
+					HalfSail = instance.config(SpeedSection, $"{key} Half Requirement", 0, new ConfigDescription($"Sailing level needed to raise a {label}'s sail halfway. 0: anyone.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), SailingGUID, "2 - Ship Speed"),
+					FullSail = instance.config(SpeedSection, $"{key} Full Requirement", 0, new ConfigDescription($"Sailing level needed to raise a {label}'s sail fully. 0: anyone.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), SailingGUID, "2 - Ship Speed"),
+				};
 			}
-
-			return true;
 		}
-	}
 
-	[HarmonyPatch(typeof(Ladder), nameof(Ladder.GetHoverText))]
-	private class OverrideHoverText
-	{
-		public static void Postfix(ref string __result)
+		// BepInEx keys can't hold quotes, brackets, '=', '\' or line breaks.
+		private static string CleanKey(string name)
 		{
-			if (allowShipNudge.Value == Toggle.Off || Player.m_localPlayer.IsSwimming())
+			StringBuilder key = new();
+			foreach (char c in name)
 			{
-				return;
+				if (c is not ('"' or '\'' or '[' or ']' or '=' or '\\' or '\n' or '\r' or '\t'))
+				{
+					key.Append(c);
+				}
 			}
-
-			__result += Localization.instance.Localize($"\n[<b><color=yellow>{shipNudgeModifierkey.Value}</color> + <color=yellow>$KEY_Use</color></b>] Push ship");
+			return key.ToString().Trim();
 		}
 	}
 
 	[HarmonyPatch(typeof(WearNTear), nameof(WearNTear.Awake))]
-	private class IncreaseHealth
+	private static class LoadShipHealth
 	{
-		[UsedImplicitly]
 		private static void Prefix(WearNTear __instance)
 		{
-			__instance.m_health *= 1 + (__instance.GetComponent<ZNetView>().GetZDO()?.GetFloat("Sailing Skill Level") ?? (__instance.GetComponent<Ship>() ? Player.m_localPlayer.GetSkillFactor("Sailing") : 1)) * shipHealthIncrease.Value;
+			if (__instance.GetComponent<Ship>() != null && __instance.GetComponent<ZNetView>()?.GetZDO() is { } zdo)
+			{
+				__instance.m_health *= 1f + zdo.GetFloat(BuilderLevelKey) * healthBonus.Value;
+			}
 		}
 	}
 
-	[HarmonyPatch(typeof(Minimap), nameof(Minimap.Explore), typeof(Vector3), typeof(float))]
-	private class IncreaseExplorationRadius
+	[HarmonyPatch(typeof(WearNTear), nameof(WearNTear.OnPlaced))]
+	private static class BuildShip
 	{
-		[UsedImplicitly]
-		private static void Prefix(Minimap __instance, ref float radius)
+		private static void Postfix(WearNTear __instance)
 		{
-			if (Player.m_localPlayer is { m_attached: true, m_attachedToShip: true } player)
+			Player builder = Player.m_localPlayer;
+			if (builder == null || __instance.GetComponent<Ship>() == null || __instance.GetComponent<ZNetView>()?.GetZDO() is not { } zdo)
 			{
-				radius *= 1 + player.GetSkillFactor("Sailing") * explorationRadiusIncrease.Value;
+				return;
 			}
+
+			float level = builder.GetSkillFactor(SkillName);
+			zdo.Set(BuilderLevelKey, level);
+			__instance.m_health *= 1f + level * healthBonus.Value;
+			builder.RaiseSkill(SkillName, 35f);
 		}
+	}
+
+	private static Player? Captain(Ship ship)
+	{
+		if (ship.m_shipControlls == null)
+		{
+			return null;
+		}
+
+		long id = ship.m_shipControlls.GetUser();
+		return id == 0 ? null : Player.s_players.FirstOrDefault(p => p.GetPlayerID() == id);
 	}
 
 	[HarmonyPatch(typeof(Ship), nameof(Ship.GetSailForce))]
-	private class ChangeShipSpeed
+	private static class SailFaster
 	{
-		[UsedImplicitly]
-		private class Timer
-		{
-			public float UpdateDelta = 0;
-			public float lastUpdate = Time.fixedTime;
-		}
-
-		private static readonly ConditionalWeakTable<Ship, Timer> timers = new();
+		private static readonly ConditionalWeakTable<Ship, StrongBox<float>> timeUnderSail = new();
 
 		private static void Postfix(Ship __instance, ref Vector3 __result)
 		{
-			Timer timer = timers.GetOrCreateValue(__instance);
-			if (Player.s_players.FirstOrDefault(p => p.GetPlayerID() == __instance.m_shipControlls.GetUser()) is { } sailor)
+			if (Captain(__instance) is not { } captain)
 			{
-				if (shipSpeedIncrease.TryGetValue(__instance.GetComponent<Piece>().m_name, out ConfigEntry<float> speedIncrease))
-				{
-					__result *= 1 + sailor.m_nview.GetZDO().GetFloat("Sailing Skill") * speedIncrease.Value;
-				}
-
-				if (__instance.m_speed is not Ship.Speed.Stop)
-				{
-					timer.UpdateDelta += Time.fixedTime - timer.lastUpdate;
-					if (timer.UpdateDelta > 1)
-					{
-						sailor.m_nview.InvokeRPC("Sailing Skill Increase", 0.5f);
-						timer.UpdateDelta -= 1;
-					}
-				}
+				return;
 			}
 
-			timer.lastUpdate = Time.fixedTime;
-		}
-	}
-
-	[HarmonyPatch(typeof(Ship), nameof(Ship.Forward))]
-	private class PreventShipSpeeds
-	{
-		private static bool Prefix(Ship __instance)
-		{
-			if (__instance.m_speed is Ship.Speed.Slow && shipHalfRequirement.TryGetValue(__instance.GetComponent<Piece>().m_name, out ConfigEntry<int> requiredHalfLevel) && requiredHalfLevel.Value > Mathf.RoundToInt(Player.m_localPlayer.GetSkillFactor("Sailing") * 100))
+			if (TypeOf(__instance) is { } type)
 			{
-				Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Your sailing skill is too low to sail this ship with reduced sail.");
-
-				return false;
+				__result *= 1f + SkillShare.Level(captain, SkillName) * type.Speed.Value;
 			}
 
-			if (__instance.m_speed is Ship.Speed.Half && shipFullRequirement.TryGetValue(__instance.GetComponent<Piece>().m_name, out ConfigEntry<int> requiredFullLevel) && requiredFullLevel.Value > Mathf.RoundToInt(Player.m_localPlayer.GetSkillFactor("Sailing") * 100))
+			if (__instance.m_speed == Ship.Speed.Stop)
 			{
-				Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Your sailing skill is too low to sail this ship with full sail.");
-
-				return false;
+				return;
 			}
 
-			return true;
+			// Half a point of experience per second under way.
+			StrongBox<float> time = timeUnderSail.GetValue(__instance, _ => new StrongBox<float>());
+			time.Value += Time.fixedDeltaTime;
+			if (time.Value >= 1f)
+			{
+				time.Value -= 1f;
+				SkillShare.Raise(captain, SkillName, 0.5f);
+			}
 		}
 	}
 
 	[HarmonyPatch(typeof(ShipControlls), nameof(ShipControlls.Interact))]
-	private class BlockSailing
+	private static class HelmRequirement
 	{
 		private static bool Prefix(ShipControlls __instance)
 		{
-			if (!shipPaddleRequirement.TryGetValue(__instance.m_ship.GetComponent<Piece>().m_name, out ConfigEntry<int> requiredPaddleLevel) || requiredPaddleLevel.Value <= Mathf.RoundToInt(Player.m_localPlayer.GetSkillFactor("Sailing") * 100))
+			if (Player.m_localPlayer == null || __instance.m_ship == null || TypeOf(__instance.m_ship) is not { } type || LocalLevel >= type.Paddle.Value)
 			{
 				return true;
 			}
 
-			Player.m_localPlayer.Message(MessageHud.MessageType.Center, "Your sailing skill is too low to command this ship.");
+			Player.m_localPlayer.Message(MessageHud.MessageType.Center, $"You need Sailing {type.Paddle.Value} to steer this ship.");
 			return false;
 		}
 	}
 
-	[HarmonyPatch(typeof(Player), nameof(Player.Awake))]
-	private class ExposeSailingSkill
+	[HarmonyPatch(typeof(Ship), nameof(Ship.Forward))]
+	private static class SailRequirement
 	{
-		private static void Postfix(Player __instance)
+		private static bool Prefix(Ship __instance)
 		{
-			__instance.m_nview.Register("Sailing Skill Increase", (long _, float amount) => __instance.RaiseSkill("Sailing", amount));
+			if (Player.m_localPlayer == null || TypeOf(__instance) is not { } type)
+			{
+				return true;
+			}
+
+			// Forward raises the sail one step: Slow to Half, Half to Full.
+			int needed = __instance.m_speed switch
+			{
+				Ship.Speed.Slow => type.HalfSail.Value,
+				Ship.Speed.Half => type.FullSail.Value,
+				_ => 0,
+			};
+			if (LocalLevel >= needed)
+			{
+				return true;
+			}
+
+			string sail = __instance.m_speed == Ship.Speed.Slow ? "halfway" : "fully";
+			Player.m_localPlayer.Message(MessageHud.MessageType.Center, $"You need Sailing {needed} to raise this sail {sail}.");
+			return false;
 		}
 	}
 
-	[HarmonyPatch(typeof(Player), nameof(Player.Update))]
-	public class PlayerUpdate
+	[HarmonyPatch(typeof(Minimap), nameof(Minimap.Explore), typeof(Vector3), typeof(float))]
+	private static class RevealMore
 	{
-		private static void Postfix(Player __instance)
+		private static void Prefix(ref float radius)
 		{
-			if (__instance == Player.m_localPlayer)
+			if (Player.m_localPlayer is { m_attached: true, m_attachedToShip: true } player)
 			{
-				__instance.m_nview.GetZDO().Set("Sailing Skill", __instance.GetSkillFactor("Sailing"));
+				radius *= 1f + player.GetSkillFactor(SkillName) * revealBonus.Value;
+			}
+		}
+	}
+
+	private static bool CanPush(Player? player) => player != null && pushAllowed.Value == Toggle.On && pushKey.Value.MainKey != KeyCode.None && !player.IsSwimming();
+
+	[HarmonyPatch(typeof(Ladder), nameof(Ladder.Interact))]
+	private static class PushShip
+	{
+		private static float nextPush;
+
+		private static bool Prefix(Ladder __instance)
+		{
+			Player player = Player.m_localPlayer;
+			if (!CanPush(player) || !pushKey.Value.IsPressed() || __instance.GetComponentInParent<Ship>() is not { } ship || ship.GetComponent<Rigidbody>() is not { } body)
+			{
+				return true;
+			}
+
+			if (Time.time < nextPush)
+			{
+				return false;
+			}
+			nextPush = Time.time + 1f;
+
+			Vector3 facing = Vector3.ProjectOnPlane(player.transform.forward, Vector3.up).normalized;
+			if (Vector3.Dot(ship.transform.position - player.transform.position, facing) <= 0f)
+			{
+				player.Message(MessageHud.MessageType.Center, "Face the ship to push it.");
+				return false;
+			}
+
+			body.AddForce(facing * pushStrength.Value, ForceMode.VelocityChange);
+			return false;
+		}
+	}
+
+	[HarmonyPatch(typeof(Ladder), nameof(Ladder.GetHoverText))]
+	private static class PushHint
+	{
+		private static void Postfix(Ladder __instance, ref string __result)
+		{
+			if (CanPush(Player.m_localPlayer) && __instance.GetComponentInParent<Ship>() != null)
+			{
+				__result += Localization.instance.Localize($"\n[<color=yellow><b>{pushKey.Value} + $KEY_Use</b></color>] Push ship");
 			}
 		}
 	}

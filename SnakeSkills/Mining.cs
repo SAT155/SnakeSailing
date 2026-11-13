@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using BepInEx.Configuration;
 using HarmonyLib;
-using JetBrains.Annotations;
 using SkillManager;
 using UnityEngine;
 using static SnakeSkills.SnakeSkillsPlugin;
@@ -10,218 +9,213 @@ using Random = UnityEngine.Random;
 
 namespace SnakeSkills;
 
-// Mining skill, from blaxxun-boop's Mining 1.1.8. Only the config layout changed.
+// Mining: more pickaxe damage and more ore with skill, and from a set level a small chance that a
+// hit breaks the whole deposit at once (players can switch that off for themselves).
 internal static class Mining
 {
+	internal const string SkillName = "Mining";
 	private const string Section = "5 - Mining";
 
-	private static ConfigEntry<float> miningDamageFactor = null!;
-	private static ConfigEntry<float> miningItemYieldFactor = null!;
-	private static ConfigEntry<KeyboardShortcut> explosionToggleHotkey = null!;
-	private static ConfigEntry<int> explosionMinimumLevel = null!;
-	private static ConfigEntry<float> explosionChance = null!;
-	private static ConfigEntry<float> experienceGainedFactor = null!;
-	private static ConfigEntry<int> experienceLoss = null!;
+	private static Skill skill = null!;
+	private static ConfigEntry<float> damageBonus = null!;
+	private static ConfigEntry<float> yieldBonus = null!;
+	private static ConfigEntry<int> shatterLevel = null!;
+	private static ConfigEntry<float> shatterChance = null!;
+	private static ConfigEntry<KeyboardShortcut> shatterToggleKey = null!;
+	private static ConfigEntry<float> xpFactor = null!;
+	private static ConfigEntry<int> xpLoss = null!;
 
-	private static bool explosiveMining = true;
-
-	private static Skill mining = null!;
+	/// <summary>This player's choice: may their hits break whole deposits.</summary>
+	internal static bool ExplosiveOn = true;
 
 	public static void Init(SnakeSkillsPlugin mod)
 	{
-		mining = new Skill("Mining", "mining.png");
-		mining.Description.English("Increases damage done while mining and item yield from ore deposits.");
-		mining.Name.German("Bergbau");
-		mining.Description.German("Erhöht den Schaden während Bergbau-Aktivitäten und erhöht die Ausbeute von Erzvorkommen.");
-		mining.Configurable = false;
+		skill = new Skill(SkillName, "mining.png");
+		skill.Description.English("Your pickaxe hits harder and rocks and ore deposits give more.");
+		skill.Configurable = false;
 
-		miningDamageFactor = mod.config(Section, "Mining Damage Factor", 3f, new ConfigDescription("Mining damage factor at skill level 100.", new AcceptableValueRange<float>(1f, 10f)), MiningGUID, "2 - Mining");
-		miningItemYieldFactor = mod.config(Section, "Mining Yield Factor", 2f, new ConfigDescription("Mining yield factor at skill level 100.", new AcceptableValueRange<float>(1f, 5f)), MiningGUID, "2 - Mining");
-		explosionMinimumLevel = mod.config(Section, "Mining Explosion Level Requirement", 50, new ConfigDescription("Minimum required skill level to have a chance for the deposit to explode. 0 is disabled.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), MiningGUID, "2 - Mining");
-		explosionChance = mod.config(Section, "Mining Explosion Chance", 1f, new ConfigDescription("Mining explosion chance at skill level 100.", new AcceptableValueRange<float>(0, 100)), MiningGUID, "2 - Mining");
-		explosionToggleHotkey = mod.config(Section, "Toggle Explosive Mining Hotkey", new KeyboardShortcut(KeyCode.T, KeyCode.LeftControl), new ConfigDescription("Shortcut to press to toggle explosion chance off and on. Please note that you have to stand still, to toggle this."), MiningGUID, "2 - Mining", false);
-		experienceGainedFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Factor for experience gained for the mining skill.", new AcceptableValueRange<float>(0.01f, 5f)), MiningGUID, "3 - Other");
-		experienceGainedFactor.SettingChanged += (_, _) => mining.SkillGainFactor = experienceGainedFactor.Value;
-		mining.SkillGainFactor = experienceGainedFactor.Value;
-		experienceLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("How much experience to lose in the mining skill on death.", new AcceptableValueRange<int>(0, 100)), MiningGUID, "3 - Other");
-		experienceLoss.SettingChanged += (_, _) => mining.SkillLoss = experienceLoss.Value;
-		mining.SkillLoss = experienceLoss.Value;
+		damageBonus = mod.config(Section, "Mining Damage Factor", 3f, new ConfigDescription("Pickaxe damage at Mining 100, as a multiple of normal (3 = three times). Lower levels get a matching share.", new AcceptableValueRange<float>(1f, 10f)), MiningGUID, "2 - Mining");
+		yieldBonus = mod.config(Section, "Mining Yield Factor", 2f, new ConfigDescription("What rocks and deposits drop at Mining 100, as a multiple of normal (2 = double). Lower levels get a matching share.", new AcceptableValueRange<float>(1f, 5f)), MiningGUID, "2 - Mining");
+		shatterLevel = mod.config(Section, "Mining Explosion Level Requirement", 50, new ConfigDescription("Mining level from which a pickaxe hit can break the whole deposit at once. 0 turns it off.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { ShowRangeAsPercent = false }), MiningGUID, "2 - Mining");
+		shatterChance = mod.config(Section, "Mining Explosion Chance", 1f, new ConfigDescription("Percent chance per hit at Mining 100 that the whole deposit breaks. The chance grows from nothing just below the level requirement up to this.", new AcceptableValueRange<float>(0f, 100f)), MiningGUID, "2 - Mining");
+		shatterToggleKey = mod.config(Section, "Toggle Explosive Mining Hotkey", new KeyboardShortcut(KeyCode.T, KeyCode.LeftControl), new ConfigDescription("Switches whole-deposit breaks off and on for you."), MiningGUID, "2 - Mining", false);
+		xpFactor = mod.config(Section, "Skill Experience Gain Factor", 1f, new ConfigDescription("Multiplies all Mining experience.", new AcceptableValueRange<float>(0.01f, 5f)), MiningGUID, "3 - Other");
+		xpFactor.SettingChanged += (_, _) => skill.SkillGainFactor = xpFactor.Value;
+		skill.SkillGainFactor = xpFactor.Value;
+		xpLoss = mod.config(Section, "Skill Experience Loss", 0, new ConfigDescription("Mining experience lost on death.", new AcceptableValueRange<int>(0, 100)), MiningGUID, "3 - Other");
+		xpLoss.SettingChanged += (_, _) => skill.SkillLoss = xpLoss.Value;
+		skill.SkillLoss = xpLoss.Value;
 	}
 
-	/// <summary>Pickaxe damage multiplier from the Mining skill (used by Ember Blast, whose hits
-	/// don't go through SEMan.ModifyAttack).</summary>
-	internal static float DamageMultiplier(Player player) => 1 + player.GetSkillFactor("Mining") * (miningDamageFactor.Value - 1);
+	/// <summary>Pickaxe damage multiplier from the Mining skill. Ember Blast uses it too, since its
+	/// hits don't pass through <see cref="SEMan.ModifyAttack"/>.</summary>
+	internal static float DamageMultiplier(Player player) => 1f + player.GetSkillFactor(SkillName) * (damageBonus.Value - 1f);
 
 	internal static void Update()
 	{
-		if (explosionToggleHotkey.Value.IsDown())
+		if (Player.m_localPlayer == null || !Player.m_localPlayer.TakeInput() || !shatterToggleKey.Value.IsDown())
 		{
-			explosiveMining = !explosiveMining;
-			Debug.Log($"ExplosiveMining: {explosiveMining}");
-			Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft, $"Explosive Mining: {explosiveMining}");
+			return;
 		}
-	}
 
-	[HarmonyPatch(typeof(Player), nameof(Player.Awake))]
-	public class PlayerAwake
-	{
-		private static void Postfix(Player __instance)
-		{
-			__instance.m_nview.Register("Mining IncreaseSkill", (long _, int factor) => __instance.RaiseSkill("Mining", factor));
-		}
-	}
-
-	[HarmonyPatch(typeof(Player), nameof(Player.Update))]
-	public class PlayerUpdate
-	{
-		private static void Postfix(Player __instance)
-		{
-			if (__instance == Player.m_localPlayer)
-			{
-				__instance.m_nview.GetZDO().Set("Mining Skill Factor", __instance.GetSkillFactor("Mining"));
-			}
-		}
+		ExplosiveOn = !ExplosiveOn;
+		Player.m_localPlayer.Message(MessageHud.MessageType.TopLeft, ExplosiveOn ? "Whole-deposit breaks on" : "Whole-deposit breaks off");
 	}
 
 	[HarmonyPatch(typeof(SEMan), nameof(SEMan.ModifyAttack))]
-	private class IncreaseDamageDone
+	private static class HitHarder
 	{
 		private static void Prefix(SEMan __instance, ref HitData hitData)
 		{
 			if (__instance.m_character is Player player)
 			{
-				hitData.m_damage.m_pickaxe *= 1 + player.GetSkillFactor("Mining") * (miningDamageFactor.Value - 1);
+				hitData.m_damage.m_pickaxe *= DamageMultiplier(player);
 			}
+		}
+	}
+
+	// The miner's level (0-1) while a player's hit on rock is being handled, else -1. Drops made
+	// during that hit get the yield bonus.
+	private static float minerLevel = -1f;
+
+	/// <summary>
+	/// Shared start of a player's hit on rock: remembers the miner for the yield bonus, gives
+	/// experience, and rolls for a whole-deposit break. Returns false when the deposit was broken
+	/// (the original hit is then skipped). <paramref name="started"/> tells the finalizer to clear
+	/// the miner again; hits made while breaking a deposit run as part of the first one.
+	/// </summary>
+	private static bool StartHit(HitData hit, int minToolTier, ZNetView nview, Action breakAll, out bool started)
+	{
+		started = false;
+		if (minerLevel >= 0f || hit.GetAttacker() is not Player miner)
+		{
+			return true;
+		}
+
+		started = true;
+		float level = SkillShare.Level(miner, SkillName);
+		minerLevel = level;
+
+		if (hit.m_toolTier < minToolTier || hit.m_damage.m_pickaxe <= 0f || nview == null || !nview.IsValid() || !nview.IsOwner())
+		{
+			return true;
+		}
+
+		SkillShare.Raise(miner, SkillName, 1f);
+
+		if (!SkillShare.ExplosiveMining(miner) || !RollShatter(level))
+		{
+			return true;
+		}
+
+		breakAll();
+		return false;
+	}
+
+	private static bool RollShatter(float level)
+	{
+		if (shatterLevel.Value <= 0 || level * 100f < shatterLevel.Value)
+		{
+			return false;
+		}
+
+		// Ramps up linearly from 10 levels below the requirement to the full chance at 100.
+		float start = (shatterLevel.Value - 10) / 100f;
+		float ramp = Mathf.Clamp01((level - start) / Mathf.Max(0.01f, 1f - start));
+		return Random.value * 100f < ramp * shatterChance.Value;
+	}
+
+	private static HitData BreakHit(HitData cause, Vector3 point, float damage) => new()
+	{
+		m_damage = { m_damage = damage },
+		m_point = point,
+		m_toolTier = 1000,
+		m_attacker = cause.m_attacker,
+	};
+
+	[HarmonyPatch(typeof(MineRock5), nameof(MineRock5.RPC_Damage))]
+	private static class HitMineRock5
+	{
+		private static bool Prefix(MineRock5 __instance, HitData hit, out bool __state) => StartHit(hit, __instance.m_minToolTier, __instance.m_nview, () =>
+		{
+			for (int i = 0; i < __instance.m_hitAreas.Count; ++i)
+			{
+				MineRock5.HitArea area = __instance.m_hitAreas[i];
+				if (area.m_health > 0f && area.m_collider != null)
+				{
+					__instance.DamageArea(i, BreakHit(hit, area.m_collider.bounds.center, area.m_health * 10f + 1000f));
+				}
+			}
+		}, out __state);
+
+		private static void Finalizer(bool __state) => EndHit(__state);
+	}
+
+	[HarmonyPatch(typeof(MineRock), nameof(MineRock.RPC_Hit))]
+	private static class HitMineRock
+	{
+		private static bool Prefix(MineRock __instance, HitData hit, out bool __state) => StartHit(hit, __instance.m_minToolTier, __instance.m_nview, () =>
+		{
+			Collider[] areas = __instance.m_hitAreas;
+			ZDO zdo = __instance.m_nview.GetZDO();
+			for (int i = 0; i < areas.Length; ++i)
+			{
+				float health = zdo.GetFloat("Health" + i, __instance.m_health);
+				if (health > 0f && areas[i] != null)
+				{
+					__instance.RPC_Hit(0L, BreakHit(hit, areas[i].bounds.center, health * 10f + 1000f), i);
+				}
+			}
+		}, out __state);
+
+		private static void Finalizer(bool __state) => EndHit(__state);
+	}
+
+	// Rock-like destructibles: a pickaxe hurts them and an axe can't (not trees or stumps).
+	internal static bool IsRock(Destructible destructible) => destructible.m_damages.m_pickaxe != HitData.DamageModifier.Immune && destructible.m_damages.m_chop == HitData.DamageModifier.Immune && destructible.m_destructibleType != DestructibleType.Tree;
+
+	[HarmonyPatch(typeof(Destructible), nameof(Destructible.RPC_Damage))]
+	private static class HitRockDestructible
+	{
+		private static bool Prefix(Destructible __instance, HitData hit, out bool __state)
+		{
+			__state = false;
+			return !IsRock(__instance) || StartHit(hit, __instance.m_minToolTier, __instance.m_nview, () => __instance.RPC_Damage(0L, BreakHit(hit, hit.m_point, __instance.m_health * 10f + 1000f)), out __state);
+		}
+
+		private static void Finalizer(bool __state) => EndHit(__state);
+	}
+
+	private static void EndHit(bool started)
+	{
+		if (started)
+		{
+			minerLevel = -1f;
 		}
 	}
 
 	[HarmonyPatch(typeof(DropTable), nameof(DropTable.GetDropList), typeof(int))]
-	private class IncreaseItemYield
+	private static class MoreOre
 	{
-		[UsedImplicitly]
 		[HarmonyPriority(Priority.VeryLow)]
 		private static void Postfix(ref List<GameObject> __result)
 		{
-			if (!SetMiningFlag.IsMining)
+			if (minerLevel < 0f || __result.Count == 0)
 			{
 				return;
 			}
 
-			List<GameObject> tmp = new();
+			// Each item turns into the multiple's whole part, plus one more by chance for the fraction.
+			float multiple = 1f + minerLevel * (yieldBonus.Value - 1f);
+			List<GameObject> drops = new(__result.Count * Mathf.CeilToInt(multiple));
 			foreach (GameObject item in __result)
 			{
-				float amount = 1 + SetMiningFlag.MiningFactor * (miningItemYieldFactor.Value - 1);
-
-				for (int num = Mathf.FloorToInt(amount + Random.Range(0f, 1f)); num > 0; --num)
+				for (int n = Mathf.FloorToInt(multiple + Random.value); n > 0; --n)
 				{
-					tmp.Add(item);
+					drops.Add(item);
 				}
 			}
-
-			__result = tmp;
+			__result = drops;
 		}
-	}
-
-	[HarmonyPatch(typeof(MineRock5), nameof(MineRock5.RPC_Damage))]
-	public static class SetMiningFlag
-	{
-		public static bool IsMining = false;
-		public static float MiningFactor;
-
-		private static bool Prefix(MineRock5 __instance, HitData hit) => HandleMining(hit, () =>
-		{
-			for (int i = 0; i < __instance.m_hitAreas.Count; ++i)
-			{
-				MineRock5.HitArea hitArea = __instance.m_hitAreas[i];
-				if (hitArea.m_health > 0)
-				{
-					__instance.DamageArea(i, new HitData
-					{
-						m_damage = { m_damage = __instance.m_health },
-						m_point = hitArea.m_collider.bounds.center,
-						m_toolTier = 100,
-						m_attacker = hit.m_attacker,
-					});
-				}
-			}
-		}, __instance.m_minToolTier, __instance.m_nview);
-
-		public static bool HandleMining(HitData hit, Action explode, int minToolTier, ZNetView netView)
-		{
-			if (hit.GetAttacker() is not Player player)
-			{
-				return true;
-			}
-
-			IsMining = true;
-			MiningFactor = player.m_nview.GetZDO()?.GetFloat("Mining Skill Factor") ?? 0;
-
-			if (hit.m_toolTier >= minToolTier && hit.m_damage.m_pickaxe > 0 && netView.IsValid() && netView.IsOwner())
-			{
-				player.m_nview.InvokeRPC("Mining IncreaseSkill", 1);
-
-				if (explosiveMining && explosionMinimumLevel.Value > 0 && MiningFactor >= explosionMinimumLevel.Value / 100f && Random.Range(0f, 1f) <= (MiningFactor - (explosionMinimumLevel.Value - 10) / 100f) / (1 - (explosionMinimumLevel.Value - 10) / 100f) * explosionChance.Value / 100f)
-				{
-					explode();
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		private static void Finalizer() => IsMining = false;
-	}
-
-	[HarmonyPatch(typeof(MineRock), nameof(MineRock.RPC_Hit))]
-	public static class SetMiningFlagRock
-	{
-		private static bool Prefix(MineRock __instance, HitData hit) => SetMiningFlag.IsMining || SetMiningFlag.HandleMining(hit, () =>
-		{
-			for (int i = 0; i < __instance.m_hitAreas.Length; ++i)
-			{
-				Collider hitArea = __instance.m_hitAreas[i];
-				float health = __instance.m_nview.GetZDO().GetFloat($"Health{i}", __instance.m_health);
-				if (health > 0)
-				{
-					__instance.RPC_Hit(0, new HitData
-					{
-						m_damage = { m_damage = health },
-						m_point = hitArea.bounds.center,
-						m_toolTier = 100,
-						m_attacker = hit.m_attacker,
-					}, i);
-				}
-			}
-
-			__instance.m_hitAreas = Array.Empty<Collider>();
-		}, __instance.m_minToolTier, __instance.m_nview);
-
-		private static void Finalizer() => SetMiningFlag.IsMining = false;
-	}
-
-	[HarmonyPatch(typeof(Destructible), nameof(Destructible.RPC_Damage))]
-	public static class SetMiningFlagDestructible
-	{
-		private static bool Prefix(Destructible __instance, HitData hit)
-		{
-			if (!SetMiningFlag.IsMining && __instance.m_damages.m_pickaxe != HitData.DamageModifier.Immune && __instance.m_damages.m_chop == HitData.DamageModifier.Immune && __instance.m_destructibleType != DestructibleType.Tree)
-			{
-				return SetMiningFlag.HandleMining(hit, () =>
-				{
-					__instance.Damage(new HitData
-					{
-						m_damage = { m_damage = __instance.m_health },
-						m_point = hit.m_point,
-						m_toolTier = 100,
-						m_attacker = hit.m_attacker,
-					});
-				}, __instance.m_minToolTier, __instance.m_nview);
-			}
-
-			return true;
-		}
-
-		private static void Finalizer() => SetMiningFlag.IsMining = false;
 	}
 }

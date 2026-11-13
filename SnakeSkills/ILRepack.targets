@@ -6,7 +6,6 @@
             <InputAssemblies Include="$(TargetPath)" />
             <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/ServerSync.dll" />
             <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/SkillManager.dll" />
-            <InputAssemblies Include="$(MSBuildThisFileDirectory)Libs/CreatureLevelControlAPI.dll" />
         </ItemGroup>
         <ILRepack Parallel="true" DebugInfo="true" Internalize="true" InputAssemblies="@(InputAssemblies)"
                   OutputFile="$(TargetPath)" TargetKind="SameAsPrimaryAssembly" LibraryPath="$(MSBuildThisFileDirectory)Libs;$(ManagedDir);$(BepInExDir)/core" />

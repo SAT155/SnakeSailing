@@ -1,0 +1,10 @@
+{
+  "name": "SnakeSmartHammer",
+  "author": "SAT",
+  "version_number": "1.29.0",
+  "website_url": "https://github.com/SAT155/SnakeSailing",
+  "description": "Grids, blueprints with pictures, Hold and nudging on the vanilla hammer.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2350"
+  ]
+}

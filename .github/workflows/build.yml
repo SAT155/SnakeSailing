@@ -82,20 +82,30 @@ jobs:
           unzip -q "$RUNNER_TEMP/bepinex.zip" -d "$RUNNER_TEMP/bepinex"
           echo "BEPINEX_DIR=$RUNNER_TEMP/bepinex/BepInExPack_Valheim/BepInEx" >> "$GITHUB_ENV"
 
-      - name: Build SnakeSkills.dll
+      - name: Build SnakeSkills.dll and SnakeSmartHammer.dll
         run: |
           # Errors are re-emitted as annotations so they're readable from the run's
           # summary/API without downloading the full log.
           set -o pipefail
-          dotnet build SnakeSkills/SnakeSkills.csproj -c Release \
-            -p:ManagedDir="$MANAGED_DIR" -p:BepInExDir="$BEPINEX_DIR" 2>&1 | tee build.log \
-            || { grep -E ": error |error [A-Z]+[0-9]+" build.log | sort -u | head -40 | sed 's/^/::error::/'; exit 1; }
+          for project in SnakeSkills SnakeSmartHammer; do
+            dotnet build "$project/$project.csproj" -c Release \
+              -p:ManagedDir="$MANAGED_DIR" -p:BepInExDir="$BEPINEX_DIR" 2>&1 | tee "build-$project.log" \
+              || { grep -E ": error |error [A-Z]+[0-9]+" "build-$project.log" | sort -u | head -40 | sed 's/^/::error::/'; exit 1; }
+          done
 
-      - name: Upload build artifact
+      - name: Upload SnakeSkills build
         uses: actions/upload-artifact@v4
         with:
           name: SnakeSkills
           path: SnakeSkills/bin/Release/SnakeSkills.dll
+          if-no-files-found: error
+
+      # GitHub-only: the smart hammer derives from SmartBuild and must never go to Thunderstore.
+      - name: Upload SnakeSmartHammer build
+        uses: actions/upload-artifact@v4
+        with:
+          name: SnakeSmartHammer
+          path: SnakeSmartHammer/bin/Release/SnakeSmartHammer.dll
           if-no-files-found: error
 
   # Thunderstore-format package (thunderstore/SnakeSkills/): installs through the mod
@@ -120,12 +130,14 @@ jobs:
         run: |
           base=$(python3 -c "import json;v=json.load(open('thunderstore/SnakeSkills/manifest.json'))['version_number'].split('.');print(v[0]+'.'+v[1])")
           echo "version=$base.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-      - name: Build SnakeSkills package
+      - name: Build the packages
         env:
           PACKAGE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           python3 thunderstore/package.py SnakeSkills thunderstore-out \
             dlls/SnakeSkills/SnakeSkills.dll
+          python3 thunderstore/package.py SnakeSmartHammer thunderstore-out \
+            dlls/SnakeSmartHammer/SnakeSmartHammer.dll
       # GitHub wraps every artifact download in its own zip, so the package zip is inside it.
       # Releases (below) attach the package zip directly.
       - uses: actions/upload-artifact@v4
@@ -155,7 +167,7 @@ jobs:
           if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] \
             || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
             echo "release=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$before" "${{ github.sha }}" | grep -qE '^(SnakeSkills|thunderstore)/'; then
+          elif git diff --name-only "$before" "${{ github.sha }}" | grep -qE '^(SnakeSkills|SnakeSmartHammer|thunderstore)/'; then
             echo "release=true" >> "$GITHUB_OUTPUT"
           else
             echo "Only docs/CI changed; no release."
@@ -175,5 +187,6 @@ jobs:
             prerelease="--prerelease"
           fi
           gh release create "v${{ needs.package.outputs.version }}" artifacts/SnakeSkills/SnakeSkills.dll \
+            artifacts/SnakeSmartHammer/SnakeSmartHammer.dll \
             artifacts/SnakeSkills-thunderstore/*.zip \
             --target "${{ github.sha }}" --repo "${{ github.repository }}" --generate-notes $prerelease

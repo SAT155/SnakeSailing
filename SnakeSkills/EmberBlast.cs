@@ -204,8 +204,7 @@ internal static class EmberBlast
 		Log($"Ember Blast at {point}: {rocks} rock(s) in {radius:0.#} m, {damage:0} pickaxe damage, tier {toolTier}.");
 	}
 
-	// Same test Mining uses for "a rock-like Destructible": pickaxe hurts it, an axe can't.
-	private static bool IsRock(Destructible destructible) => destructible.m_damages.m_pickaxe != HitData.DamageModifier.Immune && destructible.m_damages.m_chop == HitData.DamageModifier.Immune && destructible.m_destructibleType != DestructibleType.Tree;
+	private static bool IsRock(Destructible destructible) => Mining.IsRock(destructible);
 
 	private static HitData NewHit(Player player, Vector3 point, float damage, short toolTier)
 	{

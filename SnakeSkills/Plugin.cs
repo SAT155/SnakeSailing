@@ -19,7 +19,7 @@ namespace SnakeSkills;
 public class SnakeSkillsPlugin : BaseUnityPlugin
 {
 	internal const string ModName = "SnakeSkills";
-	internal const string ModVersion = "1.28.0";
+	internal const string ModVersion = "1.29.0";
 	internal const string ModGUID = "com.snakesquad.snakeskills";
 	internal const string SailingGUID = "org.bepinex.plugins.sailing";
 	internal const string RanchingGUID = "org.bepinex.plugins.ranching";
@@ -86,17 +86,7 @@ public class SnakeSkillsPlugin : BaseUnityPlugin
 		DeadRaiser.Init(this);
 		BubbleShield.Init(this);
 
-		// SmartBuild's patches (smart hammer) are applied by SmartBuild.Plugin.Init, and only when
-		// SmartBuild/SnakeHammer itself isn't installed.
-		Harmony harmony = new(ModGUID);
-		foreach (System.Type type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
-		{
-			if (type.Namespace != SmartBuild.Plugin.Namespace && type.GetCustomAttributes(typeof(HarmonyPatch), false).Length != 0)
-			{
-				harmony.CreateClassProcessor(type).Patch();
-			}
-		}
-		SmartBuild.Plugin.Init(this);
+		new Harmony(ModGUID).PatchAll(Assembly.GetExecutingAssembly());
 
 		if (Chainloader.PluginInfos.ContainsKey(ValheimPlusGUID))
 		{
