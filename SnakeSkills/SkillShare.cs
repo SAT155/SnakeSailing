@@ -1,4 +1,5 @@
 using HarmonyLib;
+using SkillManager;
 using UnityEngine;
 
 namespace SnakeSkills;
