@@ -359,7 +359,55 @@ internal static class IconRenderer
 		return pixels;
 	}
 
-	internal static Sprite? Render(GameObject model)
+	// A stripped visual copy of a live prefab (a creature, a ship): instantiated under an inactive
+	// holder so none of its scripts wake up, then emptied of everything but meshes and the animator.
+	internal static Sprite? RenderPrefab(GameObject prefab, Vector3 view)
+	{
+		GameObject holder = new("SnakeSkills_IconHolder");
+		holder.SetActive(false);
+		try
+		{
+			GameObject copy = Object.Instantiate(prefab, holder.transform);
+			foreach (MonoBehaviour mb in copy.GetComponentsInChildren<MonoBehaviour>(true))
+			{
+				Object.DestroyImmediate(mb);
+			}
+			foreach (Joint joint in copy.GetComponentsInChildren<Joint>(true))
+			{
+				Object.DestroyImmediate(joint);
+			}
+			foreach (Rigidbody body in copy.GetComponentsInChildren<Rigidbody>(true))
+			{
+				Object.DestroyImmediate(body);
+			}
+			foreach (Collider collider in copy.GetComponentsInChildren<Collider>(true))
+			{
+				Object.DestroyImmediate(collider);
+			}
+			foreach (AudioSource audio in copy.GetComponentsInChildren<AudioSource>(true))
+			{
+				Object.DestroyImmediate(audio);
+			}
+			foreach (ParticleSystemRenderer particles in copy.GetComponentsInChildren<ParticleSystemRenderer>(true))
+			{
+				particles.enabled = false;
+			}
+			return Render(copy, view);
+		}
+		catch (Exception e)
+		{
+			SnakeSkillsPlugin.Log($"Icon for {prefab.name} not rendered: " + e.Message);
+			return null;
+		}
+		finally
+		{
+			Object.DestroyImmediate(holder);
+		}
+	}
+
+	internal static Sprite? Render(GameObject model) => Render(model, new Vector3(1f, 0.6f, -1f));
+
+	internal static Sprite? Render(GameObject model, Vector3 viewDirection)
 	{
 		GameObject? copy = null, camGo = null, lightGo = null;
 		RenderTexture? rt = null;
@@ -409,7 +457,7 @@ internal static class IconRenderer
 			cam.clearFlags = CameraClearFlags.SolidColor;
 			cam.backgroundColor = new Color(0f, 0f, 0f, 0f);
 			cam.cullingMask = 1 << Layer;
-			Vector3 view = new Vector3(1f, 0.6f, -1f).normalized;
+			Vector3 view = viewDirection.normalized;
 			float distance = box.extents.magnitude * 3f + 1f;
 			cam.transform.position = box.center + view * distance;
 			cam.transform.LookAt(box.center);
